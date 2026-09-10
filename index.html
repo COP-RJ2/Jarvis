@@ -7028,7 +7028,7 @@ const DataService = (() => {
   const LIVE_SECTIONS = [];
 
   async function fetchLive(s){
-    const r = await fetch('/api/dados?tabs='+encodeURIComponent(s), {cache:'no-store'});
+    const r = await fetch('/api/dados?tabs='+encodeURIComponent(s));
     if(!r.ok) throw new Error('HTTP '+r.status);
     const j = await r.json();
     if(!j.ok) throw new Error(j.erro||'resposta inválida');
@@ -8195,7 +8195,7 @@ async function pulsoLoad(key){
   const cfg = PULSO_DASHBOARDS[key];
   setBadge(key, 'loading');
   try {
-    const r = await fetch(cfg.apiPath + '?' + pulsoQueryString(key), { cache:'no-store' });
+    const r = await fetch(cfg.apiPath + '?' + pulsoQueryString(key));
     const j = await r.json();
     if(!j.ok) throw new Error(j.erro || 'resposta inválida');
     setBadge(key, 'ok', 'Planilha · '+new Date(j.atualizadoEm).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
@@ -10208,7 +10208,7 @@ function renderGestao(){
 async function loadOverview(){
   setBadge('gestao', 'loading');
   try {
-    const r = await fetch('/api/overview', { cache:'no-store' });
+    const r = await fetch('/api/overview');
     const j = await r.json();
     if(!j.ok) throw new Error(j.erro || 'resposta inválida');
     setBadge('gestao', 'ok', 'Planilha · '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
@@ -10230,7 +10230,7 @@ let OVW_JUST_DATA = null;
 // das outras seções que são sempre "hoje operacional".
 async function ovwLoadJustificativas(){
   try {
-    const r = await fetch('/api/overview?justificativas=1&de='+OVW_JUST_HOJE()+'&ate='+OVW_JUST_HOJE(), { cache:'no-store' });
+    const r = await fetch('/api/overview?justificativas=1&de='+OVW_JUST_HOJE()+'&ate='+OVW_JUST_HOJE());
     const j = await r.json();
     if(!j.ok) throw new Error(j.erro || 'resposta inválida');
     OVW_JUST_DATA = j;
@@ -10581,7 +10581,7 @@ async function loadLh(){
     const p = new URLSearchParams();
     if(LH_STATE.from) p.set('from', LH_STATE.from);
     if(LH_STATE.to) p.set('to', LH_STATE.to);
-    const r = await fetch('/api/inbound-lh?'+p.toString(), { cache:'no-store' });
+    const r = await fetch('/api/inbound-lh?'+p.toString());
     const j = await r.json();
     if(!j.ok) throw new Error(j.erro || 'resposta inválida');
     setBadge('inbound', 'ok', 'Planilha · '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
@@ -10927,7 +10927,7 @@ async function loadFm(){
     const p = new URLSearchParams();
     if(FM_STATE.from) p.set('from', FM_STATE.from);
     if(FM_STATE.to) p.set('to', FM_STATE.to);
-    const r = await fetch('/api/inbound-fm?'+p.toString(), { cache:'no-store' });
+    const r = await fetch('/api/inbound-fm?'+p.toString());
     const j = await r.json();
     if(!j.ok) throw new Error(j.erro || 'resposta inválida');
     setBadge('inbound', 'ok', 'Planilha · '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
@@ -11391,8 +11391,8 @@ function filaAutoRefresh(){
 async function filaLoad(){
   try{
     const [r, rTags] = await Promise.all([
-      fetch('/api/inbound-lh?fila=1', { cache:'no-store' }),
-      fetch('/api/inbound-lh?tags=1', { cache:'no-store' }),
+      fetch('/api/inbound-lh?fila=1'),
+      fetch('/api/inbound-lh?tags=1'),
     ]);
     const j = await r.json();
     if(!j.ok) throw new Error(j.erro || 'resposta inválida');
@@ -12261,7 +12261,7 @@ async function loadBacklog(){
   try {
     const p = new URLSearchParams();
     if(BACKLOG_STATE.date) p.set('date', BACKLOG_STATE.date);
-    const r = await fetch('/api/backlog?'+p.toString(), { cache:'no-store' });
+    const r = await fetch('/api/backlog?'+p.toString());
     const j = await r.json();
     if(!j.ok) throw new Error(j.erro || 'resposta inválida');
     setBadge('backlog', 'ok', 'Planilha · '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
@@ -12936,7 +12936,7 @@ async function loadForecast(){
     if(FORECAST_STATE.date) p.set('date', FORECAST_STATE.date);
     if(FORECAST_STATE.compDe) p.set('compDe', FORECAST_STATE.compDe);
     if(FORECAST_STATE.compAte) p.set('compAte', FORECAST_STATE.compAte);
-    const r = await fetch('/api/forecast?'+p.toString(), { cache:'no-store' });
+    const r = await fetch('/api/forecast?'+p.toString());
     const j = await r.json();
     if(!j.ok) throw new Error(j.erro || 'resposta inválida');
     setBadge('forecast', 'ok', 'Planilha · '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
@@ -13797,7 +13797,7 @@ async function loadDataMap(){
   const grid = document.getElementById('data-map-grid');
   if(grid) grid.innerHTML = '<div class="switch-hint"><i class="fas fa-spinner fa-spin"></i> Carregando…</div>';
   try {
-    const r = await fetch('/api/overview?datamap=1', { cache:'no-store' });
+    const r = await fetch('/api/overview?datamap=1');
     const j = await r.json();
     if(!j.ok) throw new Error(j.erro || 'resposta inválida');
     dataMapEntries = j.entries;
@@ -14272,7 +14272,7 @@ function kbFilteredDemandas(){
 async function loadKanban(){
   setBadge('kanban','loading');
   try {
-    const r = await fetch('/api/overview?kanban=1', { cache:'no-store' });
+    const r = await fetch('/api/overview?kanban=1');
     const j = await r.json();
     if(!j.ok) throw new Error(j.erro || 'resposta inválida');
     KB_STATE.donos = j.donos;
@@ -15161,7 +15161,7 @@ async function loadAsm(){
   try {
     const p = new URLSearchParams();
     if(ASM_STATE.date) p.set('date', ASM_STATE.date);
-    const r = await fetch('/api/asm?'+p.toString(), { cache:'no-store' });
+    const r = await fetch('/api/asm?'+p.toString());
     const j = await r.json();
     if(!j.ok) throw new Error(j.erro || 'resposta inválida');
     setBadge('asm', 'ok', 'Planilha · '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
@@ -15732,7 +15732,7 @@ const rejStatusType = st => ({good:'success', warn:'warning', bad:'danger', none
 
 async function rejLoad(){
   try{
-    const r = await fetch('/api/asm?rejeito=1', { cache:'no-store' });
+    const r = await fetch('/api/asm?rejeito=1');
     const j = await r.json();
     if(!j.ok) throw new Error(j.erro || 'resposta inválida');
     setBadge('asm', 'ok', 'Planilha · '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
@@ -18228,7 +18228,7 @@ function cmExportCsv(instance){
 let SORTER_INSTANCES = null; // { mesas, carrinhos, chutes } — instâncias montadas, guarda pra reusar .update() em vez de remontar
 async function sorterLoad(){
   try {
-    const r = await fetch('/api/asm?sorter=1', { cache:'no-store' });
+    const r = await fetch('/api/asm?sorter=1');
     const j = await r.json();
     if(!j.ok) throw new Error(j.erro || 'resposta inválida');
     setBadge('asm', 'ok', 'Planilha · '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
@@ -18334,8 +18334,8 @@ const ESTEIRA_STATE = { hora: null, turno: '' };
 async function estLoad(){
   try {
     const [clusterRes, cnvRes] = await Promise.all([
-      fetch('/api/cluster?esteira=1', { cache:'no-store' }),
-      fetch('/api/conveyor', { cache:'no-store' }),
+      fetch('/api/cluster?esteira=1'),
+      fetch('/api/conveyor'),
     ]);
     const j = await clusterRes.json();
     if(!j.ok || !j.esteira || !j.esteira.part1) throw new Error(j.esteira?.erro || j.erro || 'resposta inválida');
@@ -18722,7 +18722,7 @@ async function loadConveyor(){
   try {
     const p = new URLSearchParams();
     if(CONVEYOR_STATE.date) p.set('date', CONVEYOR_STATE.date);
-    const r = await fetch('/api/conveyor?'+p.toString(), { cache:'no-store' });
+    const r = await fetch('/api/conveyor?'+p.toString());
     const j = await r.json();
     if(!j.ok) throw new Error(j.erro || 'resposta inválida');
     setBadge('conveyor', 'ok', 'Planilha · '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
@@ -18835,7 +18835,7 @@ function justQueryString(){
 async function loadJustificativas(){
   setBadge('justificativas', 'loading');
   try {
-    const r = await fetch('/api/overview?justificativas=1&'+justQueryString(), { cache:'no-store' });
+    const r = await fetch('/api/overview?justificativas=1&'+justQueryString());
     const j = await r.json();
     if(!j.ok) throw new Error(j.erro || 'resposta inválida');
     setBadge('justificativas', 'ok', 'Planilha · '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
@@ -19544,7 +19544,7 @@ async function buildJornalSemanal(){
 
   if(!JORNAL_EDICOES){
     try {
-      const r = await fetch('/jornais/manifest.json', { cache:'no-store' });
+      const r = await fetch('/jornais/manifest.json');
       if(!r.ok) throw new Error('HTTP '+r.status);
       JORNAL_EDICOES = (await r.json()).edicoes || [];
     } catch(err){
@@ -19618,7 +19618,7 @@ async function buildInformativos(){
 
   if(!INFORMATIVOS){
     try{
-      const r = await fetch('/informativos/manifest.json', { cache:'no-store' });
+      const r = await fetch('/informativos/manifest.json');
       if(!r.ok) throw new Error('HTTP '+r.status);
       INFORMATIVOS = (await r.json()).informativos || [];
     }catch(err){
@@ -19829,7 +19829,14 @@ function removeCampanha(i){
 /* ================================================================
    AUTO-REFRESH
 ================================================================ */
-setInterval(()=>{triggerSync();renderSection(currentSection);},60000);
+// Pula o ciclo se a aba estiver em background (pedido do Roberto em
+// 2026-09-10, investigação do estouro de CPU no Vercel — aba esquecida
+// aberta em segundo plano continuava batendo nas APIs a cada 60s pra
+// sempre). TV Mode não é afetado: a tela da TV fica em foreground.
+setInterval(()=>{
+  if(document.hidden) return;
+  triggerSync();renderSection(currentSection);
+},60000);
 
 
 /* ================================================================

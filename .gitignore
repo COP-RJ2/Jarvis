@@ -1,3 +1,8 @@
 # App fonte do Olho de Deus (repo proprio, com node_modules) — no JARVIS
 # entra so o build estatico em /olho-de-deus/, gerado com `npm run build`.
 Olho de Deus v2/
+
+# Dependencias do servidor Express (server.js) — Railway reinstala a
+# partir de package.json/package-lock.json no build, nao precisa subir
+# o node_modules pro repo.
+node_modules/

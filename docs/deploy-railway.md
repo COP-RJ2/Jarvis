@@ -50,3 +50,57 @@ GOOGLE_SERVICE_ACCOUNT_EMAIL=... GOOGLE_PRIVATE_KEY=... npm start
 ```
 
 Abre em `http://localhost:3000`.
+
+## Postgres + sync da dimensão histórica (2026-09-11)
+
+As 10 abas marcadas `FLAG=SQL` na aba `readme` (dimensão histórica — SPR,
+Leftover Hub, Rawdata Out, Balanceamento, Forecast/Backlog, Inbound LH,
+Triagem, Performance, ASM, Inbound FM) passam a alimentar um Postgres, em vez
+de serem lidas direto da planilha a cada request. As abas `PYTHON` (on time)
+e `INPUT` (manuais) continuam lendo a planilha direto, sem mudança.
+
+### 1. Criar o Postgres no Railway
+
+No mesmo projeto: **New → Database → Add PostgreSQL**. O Railway injeta
+`DATABASE_URL` automaticamente em todos os serviços do projeto — não precisa
+copiar/colar a string de conexão em lugar nenhum.
+
+### 2. Rodar o sync uma vez, manual, pra validar
+
+Com `DATABASE_URL` já disponível (se estiver rodando local, copia o valor de
+**Postgres → Variables → DATABASE_URL** no Railway pra sua env local):
+
+```bash
+npm run sync:historico
+```
+
+Cria sozinho as 10 tabelas (`hist_spr`, `hist_leftover_hub`, `hist_rawdata_out`,
+`hist_balanceamento`, `hist_forecast_backlog`, `hist_inbound_lh`,
+`hist_triagem`, `hist_performance`, `hist_asm`, `hist_inbound_fm`) mais uma
+`sync_log` com o histórico de execuções — e popula tudo na primeira rodada.
+
+Cada linha da planilha vira 1 registro `jsonb` (coluna `data`) — sem schema
+fixo por coluna de propósito, já que as 10 abas têm formatos diferentes entre
+si e mudam com frequência. Pra consultar: `SELECT data->>'total' FROM
+hist_forecast_backlog WHERE data->>'origin_type' = 'CB';` (Postgres já sabe
+indexar/filtrar JSONB nativamente).
+
+Cada sync faz **full refresh** (apaga e reinsere tudo) dentro de uma
+transação — não é incremental. Certo pra esse caso porque o Data Suite já
+reescreve a origem em lote; errado seria tentar fazer upsert por chave numa
+aba que às vezes muda de estrutura.
+
+### 3. Agendar a sincronização recorrente
+
+**New → Empty Service** (ou duplica o serviço web) → aponta pro mesmo repo →
+em **Settings → Deploy**, troca o **Start Command** pra:
+
+```
+npm run sync:historico
+```
+
+E em **Settings → Cron Schedule**, define a frequência (ex.: `*/30 * * * *`
+pra cada 30 minutos — ajusta conforme a cadência real que o Data Suite
+atualiza a planilha, não faz sentido sincronizar mais rápido que a fonte
+muda). O Railway então roda esse comando, deixa terminar, e desliga até a
+próxima janela — não fica um processo vivo consumindo recurso à toa.

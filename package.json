@@ -5,12 +5,14 @@
   "description": "JARVIS — dashboard operacional COP RJ2. Servidor Express que hospeda o front estatico e as APIs (antes rodando como serverless functions na Vercel).",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "sync:historico": "node scripts/sync-historico.js"
   },
   "engines": {
     "node": ">=18"
   },
   "dependencies": {
-    "express": "^4.19.2"
+    "express": "^4.19.2",
+    "pg": "^8.13.1"
   }
 }

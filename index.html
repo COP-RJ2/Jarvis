@@ -1099,24 +1099,19 @@
 
     .vehicle-waiting { background: rgba(245,158,11,.04); }
 
-    /* ── LOGIN SCREEN ─────────────────────────────────────────── */
+    /* ── LOGIN SCREEN — página cheia, sem card/modal flutuante (pedido do
+       Roberto em 2026-09-14) ──────────────────────────────────────── */
     #login-screen {
       position: fixed; inset: 0; z-index: 9000;
       background: var(--bg);
-      display: flex; align-items: center; justify-content: center;
-      padding: 20px;
+      display: flex;
     }
     #login-screen.hidden { display: none; }
-    .login-wrap {
-      display: flex; width: 100%; max-width: 960px;
-      min-height: 560px; border-radius: var(--radius-xl);
-      overflow: hidden; box-shadow: 0 24px 64px rgba(0,0,0,.6);
-    }
+    .login-wrap { display: flex; width: 100%; height: 100%; }
     .login-form-panel {
-      width: 420px; flex-shrink: 0;
-      background: var(--surface);
+      width: 100%; max-width: 440px; margin: 0 auto; flex-shrink: 0;
       display: flex; flex-direction: column;
-      justify-content: center; padding: 48px 40px;
+      justify-content: center; padding: 40px;
     }
     .login-form-header { display: flex; align-items: center; gap: 12px; margin-bottom: 36px; }
     .login-form-icon { width: 40px; height: 40px; flex-shrink: 0; }
@@ -1148,17 +1143,8 @@
     }
     .login-photo-bottom h2 { font-size: 24px; font-weight: 800; letter-spacing: -.3px; margin-bottom: 8px; line-height: 1.2; }
     .login-photo-bottom p { font-size: 13px; color: rgba(255,255,255,.8); max-width: 340px; line-height: 1.5; }
-    .login-pw-toggle-row { display: flex; justify-content: center; gap: 5px; margin-top: 14px; font-size: 12px; color: var(--text-muted); }
-    .login-pw-toggle-row a { color: var(--orange); font-weight: 600; text-decoration: none; }
-    .login-pw-toggle-row a:hover { text-decoration: underline; }
     .login-divider { display: flex; align-items: center; gap: 12px; margin: 22px 0; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; }
     .login-divider::before, .login-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
-    .login-options { display: flex; flex-direction: column; gap: 12px; }
-    .login-option-card {
-      border: 1.5px solid var(--border); border-radius: var(--radius-lg);
-      padding: 14px 16px; background: var(--surface-2);
-    }
-    .login-option-label { font-size: 12px; font-weight: 700; color: var(--text-muted); display: flex; align-items: center; gap: 8px; }
     .login-btn.login-btn-outline {
       background: transparent !important; color: var(--text-muted);
       border: 1.5px solid var(--border); box-shadow: none;
@@ -1241,8 +1227,7 @@
     .user-menu-item.danger:hover { background: rgba(239,68,68,.08); }
     @media(max-width: 640px) {
       .login-photo-panel { display: none; }
-      .login-form-panel { width: 100%; }
-      .login-wrap { max-width: 400px; }
+      .login-form-panel { max-width: 100%; padding: 32px 24px; }
     }
 
     /* JARVIS ARC SVGs */
@@ -3055,9 +3040,6 @@
 
     @media (max-width: 760px) {
       #main-content { padding: 16px; }
-      .login-wrap { max-width: 400px; }
-      .login-form-panel { border-radius: 22px 22px 0 0 !important; }
-      .login-photo-panel { border-radius: 0 0 22px 22px !important; }
     }
     /* O toggle claro/escuro usa uma paleta antiga que não combina com esta
        camada visual — ocultado até o sistema de temas ser refeito pra ela. */
@@ -4299,67 +4281,58 @@
         </div>
       </div>
 
-      <!-- Login via "Login with SeaTalk" (pedido do Roberto em 2026-09-14) —
-           substitui o modelo de código por DM porque as permissões de
-           Bot/Employee da Open Platform ficaram pendentes de aprovação de
-           admin; essa capability já vem habilitada por padrão. -->
-      <div id="login-step-seatalk">
+      <!-- 2 métodos de login (pedido do Roberto em 2026-09-14): e-mail +
+           código por DM (1º fator domínio corporativo, 2º fator código de
+           6 dígitos via SeaTalk — depende de permissão de Bot/Employee
+           pendente de aprovação) ou QR Code (Login with SeaTalk, já
+           habilitado, sem depender de aprovação nenhuma). -->
+      <div class="login-error" id="login-error">
+        <i class="fas fa-circle-exclamation"></i>
+        <span id="login-error-msg"></span>
+      </div>
+
+      <!-- Etapa 1: e-mail corporativo -->
+      <div id="login-step-email">
         <div class="login-form-title">Bem-vindo de volta</div>
         <div class="login-form-sub">Entre com sua conta SeaTalk corporativa</div>
-        <div class="login-error" id="login-error">
-          <i class="fas fa-circle-exclamation"></i>
-          <span id="login-error-msg"></span>
+        <div class="login-field">
+          <label class="login-label">E-mail</label>
+          <div class="login-input-wrap">
+            <i class="fas fa-envelope"></i>
+            <input class="login-input" type="email" id="login-email" placeholder="seu@shopee.com" autocomplete="email" />
+          </div>
         </div>
-
-        <!-- E-mail + senha (pedido do Roberto em 2026-09-14, modelo portado
-             do Sentinela CCO — senha validada no servidor contra o Postgres,
-             ver api/auth.js). Sessão é a mesma do resto do login (cookie de
-             servidor), não localStorage como no original. -->
-        <form id="login-pw-form" autocomplete="on">
-          <div class="login-field" id="login-pw-nome-field" hidden>
-            <label class="login-label">Nome</label>
-            <div class="login-input-wrap">
-              <i class="fas fa-user"></i>
-              <input class="login-input" type="text" name="nome" autocomplete="name" />
-            </div>
-          </div>
-          <div class="login-field">
-            <label class="login-label">E-mail</label>
-            <div class="login-input-wrap">
-              <i class="fas fa-envelope"></i>
-              <input class="login-input" type="email" name="email" placeholder="seu@shopee.com" autocomplete="email" required />
-            </div>
-          </div>
-          <div class="login-field">
-            <label class="login-label">Senha</label>
-            <div class="login-input-wrap">
-              <i class="fas fa-lock"></i>
-              <input class="login-input" type="password" name="senha" autocomplete="current-password" required minlength="6" />
-            </div>
-          </div>
-          <button type="submit" class="login-btn" id="login-pw-submit">Entrar</button>
-        </form>
-        <div class="login-pw-toggle-row">
-          <span id="login-pw-toggle-text">Não tem conta?</span>
-          <a href="#" id="login-pw-toggle-link" onclick="authTogglePwMode(event)">Criar conta</a>
-        </div>
+        <button class="login-btn" id="login-btn-request" onclick="authRequestCode()">
+          <i class="fas fa-paper-plane"></i> Enviar código
+        </button>
 
         <div class="login-divider"><span>ou</span></div>
 
-        <div class="login-options">
-          <div class="login-option-card" id="login-option-qr">
-            <div class="login-option-label"><i class="fas fa-qrcode"></i> Entrar com QR Code</div>
-            <div style="display:flex;justify-content:center;margin-top:10px">
-              <div id="seatalk_login_app_info" data-response_type="code" data-state="jarvis"></div>
-              <div id="seatalk_login_button" data-size="large" data-logo_size="22"
-                data-copywriting="Entrar com SeaTalk" data-theme="light" data-align="center"></div>
-            </div>
-          </div>
-
-          <button class="login-btn login-btn-outline" type="button" onclick="authTwoStepsEmBreve()">
-            <i class="fas fa-shield-halved"></i> Verificação em duas etapas
-          </button>
+        <div style="display:flex;justify-content:center">
+          <div id="seatalk_login_app_info" data-response_type="code" data-state="jarvis"></div>
+          <div id="seatalk_login_button" data-size="large" data-logo_size="22"
+            data-copywriting="Entrar com SeaTalk" data-theme="light" data-align="center"></div>
         </div>
+      </div>
+
+      <!-- Etapa 2: código de 6 dígitos recebido no SeaTalk -->
+      <div id="login-step-code" style="display:none">
+        <div class="login-form-title">Confirme seu acesso</div>
+        <div class="login-form-sub">Digite o código de 6 dígitos que mandamos pro seu SeaTalk (<span id="login-code-email"></span>)</div>
+        <div class="login-field">
+          <label class="login-label">Código</label>
+          <div class="login-input-wrap">
+            <i class="fas fa-key"></i>
+            <input class="login-input" type="text" id="login-code" maxlength="6" inputmode="numeric"
+              placeholder="000000" autocomplete="one-time-code" style="letter-spacing:4px" />
+          </div>
+        </div>
+        <button class="login-btn" id="login-btn-verify" onclick="authVerifyCode()">
+          <i class="fas fa-arrow-right-to-bracket"></i> Entrar
+        </button>
+        <button class="login-btn login-btn-outline" type="button" style="margin-top:8px" onclick="authBackToEmail()">
+          <i class="fas fa-arrow-left"></i> Trocar e-mail / reenviar código
+        </button>
       </div>
 
       <div class="login-footer">
@@ -7266,12 +7239,10 @@ function applyUser(user){
   if(ue) ue.textContent = user.email;
 }
 
-// Login via "Login with SeaTalk" (pedido do Roberto em 2026-09-14) —
-// substitui o login por senha antigo e, depois, o modelo de código por DM
-// (permissões de Bot/Employee ficaram pendentes de aprovação de admin no
-// SeaTalk). O botão oficial redireciona pro SeaTalk; a volta cai direto em
-// GET /api/auth?seatalk_callback=1 no servidor (ver api/auth.js), que abre
-// a sessão e redireciona de volta pra essa página com ?erro=... se falhar.
+// 2 métodos de login (pedido do Roberto em 2026-09-14): e-mail + código por
+// DM (POST /api/auth?request=1 / ?verify=1) ou QR Code — "Login with
+// SeaTalk", que redireciona e volta em GET /api/auth?seatalk_callback=1.
+// Ver api/auth.js.
 
 const SEATALK_ERROS = {
   seatalk_sem_code: 'Login cancelado ou incompleto — tenta de novo.',
@@ -7283,68 +7254,76 @@ function authShowError(msg){
   document.getElementById('login-error-msg').textContent = msg;
   document.getElementById('login-error').classList.add('show');
 }
-
-// Botão fica visível desde já (pedido do Roberto), mas a permissão de Bot/
-// Employee da Open Platform ainda está pendente de aprovação — ver
-// api/_seatalk.js. Enquanto isso só avisa; troca pra ligar de verdade
-// assim que a permissão for aprovada.
-function authTwoStepsEmBreve(){
-  authShowError('Verificação em duas etapas chega em breve — por enquanto, entra com o QR Code do SeaTalk.');
-}
-
-// Login por e-mail + senha (pedido do Roberto em 2026-09-14, modelo portado
-// do Sentinela CCO — ver api/auth.js). Alterna entre "Entrar" e "Criar
-// conta" no mesmo form, igual ao original.
-let AUTH_PW_MODO = 'login'; // 'login' | 'cadastro'
-
-function authTogglePwMode(e){
-  e.preventDefault();
-  AUTH_PW_MODO = AUTH_PW_MODO === 'login' ? 'cadastro' : 'login';
-  const nomeField = document.getElementById('login-pw-nome-field');
-  const submit = document.getElementById('login-pw-submit');
-  const toggleText = document.getElementById('login-pw-toggle-text');
-  const toggleLink = document.getElementById('login-pw-toggle-link');
-  if(AUTH_PW_MODO === 'cadastro'){
-    nomeField.hidden = false;
-    submit.textContent = 'Criar conta';
-    toggleText.textContent = 'Já tem conta?';
-    toggleLink.textContent = 'Entrar';
-  } else {
-    nomeField.hidden = true;
-    submit.textContent = 'Entrar';
-    toggleText.textContent = 'Não tem conta?';
-    toggleLink.textContent = 'Criar conta';
-  }
+function authClearError(){
   document.getElementById('login-error').classList.remove('show');
 }
 
-document.getElementById('login-pw-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const form = e.target;
-  const submit = document.getElementById('login-pw-submit');
-  const body = {
-    email: form.email.value.trim(),
-    senha: form.senha.value,
-  };
-  if(AUTH_PW_MODO === 'cadastro') body.nome = form.nome.value.trim();
+let AUTH_EMAIL_ATUAL = '';
 
-  document.getElementById('login-error').classList.remove('show');
-  submit.disabled = true;
-  submit.textContent = AUTH_PW_MODO === 'cadastro' ? 'Criando conta…' : 'Entrando…';
+async function authRequestCode(){
+  const email = document.getElementById('login-email').value.trim().toLowerCase();
+  const btn = document.getElementById('login-btn-request');
+  authClearError();
+  if(!email){ authShowError('Informe seu e-mail.'); return; }
+
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Enviando…';
   try {
-    const r = await fetch(`/api/auth?${AUTH_PW_MODO === 'cadastro' ? 'register' : 'login'}=1`, {
+    const r = await fetch('/api/auth?request=1', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ email }),
     });
     const j = await r.json();
-    if(!j.ok){ throw new Error(j.erro || 'Não foi possível entrar.'); }
+    if(!j.ok){ authShowError(j.erro || 'Não foi possível enviar o código.'); return; }
+
+    AUTH_EMAIL_ATUAL = email;
+    document.getElementById('login-code-email').textContent = email;
+    document.getElementById('login-step-email').style.display = 'none';
+    document.getElementById('login-step-code').style.display = '';
+    document.getElementById('login-code').value = '';
+    document.getElementById('login-code').focus();
+    if(j.aviso) showToast?.(j.aviso); // modo dev sem SeaTalk configurado ainda
+  } catch(err){
+    authShowError('Falha de conexão — tenta de novo.');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar código';
+  }
+}
+
+async function authVerifyCode(){
+  const code = document.getElementById('login-code').value.trim();
+  const btn = document.getElementById('login-btn-verify');
+  authClearError();
+  if(!code || code.length !== 6){ authShowError('Digite os 6 dígitos do código.'); return; }
+
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Confirmando…';
+  try {
+    const r = await fetch('/api/auth?verify=1', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: AUTH_EMAIL_ATUAL, code }),
+    });
+    const j = await r.json();
+    if(!j.ok){
+      authShowError(j.erro || 'Código incorreto.');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-arrow-right-to-bracket"></i> Entrar';
+      return;
+    }
     enterPortal(j.user);
   } catch(err){
-    authShowError(err.message);
-    submit.disabled = false;
-    submit.textContent = AUTH_PW_MODO === 'cadastro' ? 'Criar conta' : 'Entrar';
+    authShowError('Falha de conexão — tenta de novo.');
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-arrow-right-to-bracket"></i> Entrar';
   }
-});
+}
+
+function authBackToEmail(){
+  authClearError();
+  document.getElementById('login-step-code').style.display = 'none';
+  document.getElementById('login-step-email').style.display = '';
+}
 
 // Carrega o botão oficial do SeaTalk só depois de saber o App ID (não é
 // segredo, mas também não faz sentido deixar hardcoded no HTML público).

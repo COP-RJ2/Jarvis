@@ -1,17 +1,26 @@
 /**
- * Cliente do SeaTalk Open Platform — usado pro login do JARVIS via "Login
- * with SeaTalk" (pedido do Roberto em 2026-09-14; trocado do modelo
- * original de código por DM porque as permissões de Bot/Employee ficaram
- * pendentes de aprovação de admin, enquanto "Login with SeaTalk" já vem
- * habilitado por padrão no app).
+ * Cliente do SeaTalk Open Platform — o JARVIS usa dois métodos de login
+ * (pedido do Roberto em 2026-09-14), os dois via esse mesmo App:
  *
- * Confirmado via documentação oficial (Open Platform, "Implement Login
- * With SeaTalk") em 2026-09-14:
- *   - POST /auth/app_access_token  { app_id, app_secret } -> { app_access_token }
+ *   1) E-mail + código por DM: 1º fator é o e-mail do domínio corporativo,
+ *      2º fator é um código de 6 dígitos mandado por DM do bot. Depende de
+ *      permissão de Bot/Employee na Open Platform, pendente de aprovação de
+ *      admin — enquanto não aprova, resolverEmployeeCodePorEmail/
+ *      enviarMensagemDireta devolvem erro "permission denied".
+ *   2) "Login with SeaTalk" (QR Code): já habilitado por padrão, não
+ *      depende de aprovação — troca um `code` de redirect pela identidade.
+ *
+ * Confirmado via documentação oficial da Open Platform em 2026-09-14:
+ *   - POST /auth/app_access_token   { app_id, app_secret } -> { app_access_token }
+ *   - POST /contacts/v2/get_employee_code_with_email { emails: string[] }
+ *     -> { code, employees: [{ code, email, employee_code, employee_status }] }
+ *     employee_status: 1 pending, 2 in position, 3 leaving, 4 terminated —
+ *     um e-mail pode ter vários registros (histórico de status), por isso
+ *     filtra por status=2.
+ *   - POST /messaging/v2/single_chat { employee_code, message } (Bearer app_access_token)
+ *     message = { tag: "text", text: { content } }
  *   - GET  /open_login/code2employee?code=...  (Bearer app_access_token)
  *     -> { code, employee: { employee_code, avatar, name, email, mobile } }
- *     `code` vem do redirect do botão "Login with SeaTalk" no front-end,
- *     expira em 10 minutos.
  */
 
 const HOST = 'https://openapi.seatalk.io';
@@ -38,6 +47,36 @@ async function getAppAccessToken() {
   return _tokenCache.token;
 }
 
+async function resolverEmployeeCodePorEmail(email) {
+  const token = await getAppAccessToken();
+  const r = await fetch(`${HOST}/contacts/v2/get_employee_code_with_email`, {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ emails: [email] }),
+  });
+  const body = await r.json();
+  if (!r.ok || body.code) throw new Error('SeaTalk get_employee_code_with_email: ' + (body.message || r.status));
+
+  const achado = (body.employees || []).find(e => e.email === email && e.code === 0 && e.employee_status === 2);
+  if (!achado) console.warn('[seatalk] employee não encontrado (ou não "in position"), resposta crua:', JSON.stringify(body));
+  return achado ? achado.employee_code : null;
+}
+
+async function enviarMensagemDireta(employeeCode, texto) {
+  const token = await getAppAccessToken();
+  const r = await fetch(`${HOST}/messaging/v2/single_chat`, {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      employee_code: employeeCode,
+      message: { tag: 'text', text: { content: texto } },
+    }),
+  });
+  const body = await r.json();
+  if (!r.ok || body.code) throw new Error('SeaTalk single_chat: ' + (body.message || r.status));
+  return body;
+}
+
 async function trocarCodePorEmployee(code) {
   const token = await getAppAccessToken();
   const r = await fetch(`${HOST}/open_login/code2employee?code=${encodeURIComponent(code)}`, {
@@ -48,4 +87,4 @@ async function trocarCodePorEmployee(code) {
   return body.employee; // { employee_code, avatar, name, email, mobile }
 }
 
-module.exports = { getAppAccessToken, trocarCodePorEmployee };
+module.exports = { getAppAccessToken, resolverEmployeeCodePorEmail, enviarMensagemDireta, trocarCodePorEmployee };

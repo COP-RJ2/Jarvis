@@ -9,15 +9,10 @@
  *   - POST /messaging/v2/single_chat { employee_code, message } (Bearer app_access_token)
  *     message = { tag: "text", text: { content } }
  *
- * ATENÇÃO — 1 ponto NÃO confirmado com certeza: o endpoint de resolver
- * employee_code a partir do e-mail. A Open Platform tem essa capacidade
- * (confirmado que existe), mas o path exato eu não consegui validar via
- * busca pública — só fica visível na documentação autenticada, depois que
- * o App for criado em open.seatalk.io. `resolverEmployeeCodePorEmail`
- * abaixo está com o path mais provável dado o padrão dos outros endpoints
- * (`/contacts/v1/...`); se não bater, é 1 linha pra ajustar assim que você
- * tiver acesso à doc de verdade — o resto do fluxo (token, envio de
- * mensagem, código de 6 dígitos) não depende disso mudar.
+ *   - POST /contacts/v2/get_employee_code_with_email { emails: string[] }
+ *     -> lista de e-mail + employee_code (confirmado em 2026-09-14 depois
+ *        que o /contacts/v1/find_employee_by_email chutado inicialmente
+ *        deu 404 em produção — path certo achado via SDK público).
  */
 
 const HOST = 'https://openapi.seatalk.io';
@@ -44,18 +39,22 @@ async function getAppAccessToken() {
   return _tokenCache.token;
 }
 
-// Ver aviso no topo do arquivo — path a confirmar quando o App existir.
 async function resolverEmployeeCodePorEmail(email) {
   const token = await getAppAccessToken();
-  const r = await fetch(`${HOST}/contacts/v1/find_employee_by_email`, {
+  const r = await fetch(`${HOST}/contacts/v2/get_employee_code_with_email`, {
     method: 'POST',
     headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
     body: JSON.stringify({ emails: [email] }),
   });
   const body = await r.json();
-  if (!r.ok || body.code) throw new Error('SeaTalk find_employee_by_email: ' + (body.message || r.status));
-  const achado = (body.employees || body.results || []).find(e => e.email === email && e.exists !== false);
-  return achado ? achado.employee_code : null;
+  if (!r.ok || body.code) throw new Error('SeaTalk get_employee_code_with_email: ' + (body.message || r.status));
+
+  // Formato exato da lista ainda não 100% confirmado (código achado via SDK
+  // público, não doc oficial) — aceita as variações mais prováveis.
+  const lista = body.employee_code_list || body.employees || body.results || [];
+  const achado = lista.find(e => (e.email === email || e.employee_email === email) && e.exist !== false && e.employee_exist !== false);
+  if (!achado) console.warn('[seatalk] employee não encontrado, resposta crua:', JSON.stringify(body));
+  return achado ? (achado.employee_code || achado.code) : null;
 }
 
 async function enviarMensagemDireta(employeeCode, texto) {

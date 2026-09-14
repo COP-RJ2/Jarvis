@@ -1148,7 +1148,12 @@
     }
     .login-photo-bottom h2 { font-size: 24px; font-weight: 800; letter-spacing: -.3px; margin-bottom: 8px; line-height: 1.2; }
     .login-photo-bottom p { font-size: 13px; color: rgba(255,255,255,.8); max-width: 340px; line-height: 1.5; }
-    .login-options { display: flex; flex-direction: column; gap: 12px; margin-top: 18px; }
+    .login-pw-toggle-row { display: flex; justify-content: center; gap: 5px; margin-top: 14px; font-size: 12px; color: var(--text-muted); }
+    .login-pw-toggle-row a { color: var(--orange); font-weight: 600; text-decoration: none; }
+    .login-pw-toggle-row a:hover { text-decoration: underline; }
+    .login-divider { display: flex; align-items: center; gap: 12px; margin: 22px 0; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; }
+    .login-divider::before, .login-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+    .login-options { display: flex; flex-direction: column; gap: 12px; }
     .login-option-card {
       border: 1.5px solid var(--border); border-radius: var(--radius-lg);
       padding: 14px 16px; background: var(--surface-2);
@@ -4306,6 +4311,41 @@
           <span id="login-error-msg"></span>
         </div>
 
+        <!-- E-mail + senha (pedido do Roberto em 2026-09-14, modelo portado
+             do Sentinela CCO — senha validada no servidor contra o Postgres,
+             ver api/auth.js). Sessão é a mesma do resto do login (cookie de
+             servidor), não localStorage como no original. -->
+        <form id="login-pw-form" autocomplete="on">
+          <div class="login-field" id="login-pw-nome-field" hidden>
+            <label class="login-label">Nome</label>
+            <div class="login-input-wrap">
+              <i class="fas fa-user"></i>
+              <input class="login-input" type="text" name="nome" autocomplete="name" />
+            </div>
+          </div>
+          <div class="login-field">
+            <label class="login-label">E-mail</label>
+            <div class="login-input-wrap">
+              <i class="fas fa-envelope"></i>
+              <input class="login-input" type="email" name="email" placeholder="seu@shopee.com" autocomplete="email" required />
+            </div>
+          </div>
+          <div class="login-field">
+            <label class="login-label">Senha</label>
+            <div class="login-input-wrap">
+              <i class="fas fa-lock"></i>
+              <input class="login-input" type="password" name="senha" autocomplete="current-password" required minlength="6" />
+            </div>
+          </div>
+          <button type="submit" class="login-btn" id="login-pw-submit">Entrar</button>
+        </form>
+        <div class="login-pw-toggle-row">
+          <span id="login-pw-toggle-text">Não tem conta?</span>
+          <a href="#" id="login-pw-toggle-link" onclick="authTogglePwMode(event)">Criar conta</a>
+        </div>
+
+        <div class="login-divider"><span>ou</span></div>
+
         <div class="login-options">
           <div class="login-option-card" id="login-option-qr">
             <div class="login-option-label"><i class="fas fa-qrcode"></i> Entrar com QR Code</div>
@@ -4316,7 +4356,7 @@
             </div>
           </div>
 
-          <button class="login-btn login-btn-outline" onclick="authTwoStepsEmBreve()">
+          <button class="login-btn login-btn-outline" type="button" onclick="authTwoStepsEmBreve()">
             <i class="fas fa-shield-halved"></i> Verificação em duas etapas
           </button>
         </div>
@@ -7251,6 +7291,60 @@ function authShowError(msg){
 function authTwoStepsEmBreve(){
   authShowError('Verificação em duas etapas chega em breve — por enquanto, entra com o QR Code do SeaTalk.');
 }
+
+// Login por e-mail + senha (pedido do Roberto em 2026-09-14, modelo portado
+// do Sentinela CCO — ver api/auth.js). Alterna entre "Entrar" e "Criar
+// conta" no mesmo form, igual ao original.
+let AUTH_PW_MODO = 'login'; // 'login' | 'cadastro'
+
+function authTogglePwMode(e){
+  e.preventDefault();
+  AUTH_PW_MODO = AUTH_PW_MODO === 'login' ? 'cadastro' : 'login';
+  const nomeField = document.getElementById('login-pw-nome-field');
+  const submit = document.getElementById('login-pw-submit');
+  const toggleText = document.getElementById('login-pw-toggle-text');
+  const toggleLink = document.getElementById('login-pw-toggle-link');
+  if(AUTH_PW_MODO === 'cadastro'){
+    nomeField.hidden = false;
+    submit.textContent = 'Criar conta';
+    toggleText.textContent = 'Já tem conta?';
+    toggleLink.textContent = 'Entrar';
+  } else {
+    nomeField.hidden = true;
+    submit.textContent = 'Entrar';
+    toggleText.textContent = 'Não tem conta?';
+    toggleLink.textContent = 'Criar conta';
+  }
+  document.getElementById('login-error').classList.remove('show');
+}
+
+document.getElementById('login-pw-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const submit = document.getElementById('login-pw-submit');
+  const body = {
+    email: form.email.value.trim(),
+    senha: form.senha.value,
+  };
+  if(AUTH_PW_MODO === 'cadastro') body.nome = form.nome.value.trim();
+
+  document.getElementById('login-error').classList.remove('show');
+  submit.disabled = true;
+  submit.textContent = AUTH_PW_MODO === 'cadastro' ? 'Criando conta…' : 'Entrando…';
+  try {
+    const r = await fetch(`/api/auth?${AUTH_PW_MODO === 'cadastro' ? 'register' : 'login'}=1`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const j = await r.json();
+    if(!j.ok){ throw new Error(j.erro || 'Não foi possível entrar.'); }
+    enterPortal(j.user);
+  } catch(err){
+    authShowError(err.message);
+    submit.disabled = false;
+    submit.textContent = AUTH_PW_MODO === 'cadastro' ? 'Criar conta' : 'Entrar';
+  }
+});
 
 // Carrega o botão oficial do SeaTalk só depois de saber o App ID (não é
 // segredo, mas também não faz sentido deixar hardcoded no HTML público).

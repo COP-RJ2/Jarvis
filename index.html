@@ -7312,6 +7312,11 @@ async function initSeatalkLogin(){
 
     const script = document.createElement('script');
     script.src = 'https://static.cdn.haiserve.com/seatalk/client/shared/sop/auth.js';
+    // A lib deles só se auto-inicializa no evento window.load — como esse
+    // script é injetado depois (só sabemos o App ID após um fetch), esse
+    // evento já passou. window.SEATALK_LOGIN.init() é o mesmo gatilho, exposto
+    // pra chamar manualmente (confirmado lendo o código-fonte do auth.js).
+    script.onload = () => window.SEATALK_LOGIN?.init();
     document.body.appendChild(script);
   } catch(err){
     authShowError('Falha de conexão — recarregue a página.');

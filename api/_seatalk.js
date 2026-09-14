@@ -10,9 +10,10 @@
  *     message = { tag: "text", text: { content } }
  *
  *   - POST /contacts/v2/get_employee_code_with_email { emails: string[] }
- *     -> lista de e-mail + employee_code (confirmado em 2026-09-14 depois
- *        que o /contacts/v1/find_employee_by_email chutado inicialmente
- *        deu 404 em produção — path certo achado via SDK público).
+ *     -> { code, employees: [{ code, email, employee_code, employee_status }] }
+ *     employee_status: 1 pending, 2 in position, 3 leaving, 4 terminated —
+ *     um e-mail pode ter vários registros (histórico de status), por isso
+ *     filtra por status=2 (documentação oficial, confirmada em 2026-09-14).
  */
 
 const HOST = 'https://openapi.seatalk.io';
@@ -49,12 +50,9 @@ async function resolverEmployeeCodePorEmail(email) {
   const body = await r.json();
   if (!r.ok || body.code) throw new Error('SeaTalk get_employee_code_with_email: ' + (body.message || r.status));
 
-  // Formato exato da lista ainda não 100% confirmado (código achado via SDK
-  // público, não doc oficial) — aceita as variações mais prováveis.
-  const lista = body.employee_code_list || body.employees || body.results || [];
-  const achado = lista.find(e => (e.email === email || e.employee_email === email) && e.exist !== false && e.employee_exist !== false);
-  if (!achado) console.warn('[seatalk] employee não encontrado, resposta crua:', JSON.stringify(body));
-  return achado ? (achado.employee_code || achado.code) : null;
+  const achado = (body.employees || []).find(e => e.email === email && e.code === 0 && e.employee_status === 2);
+  if (!achado) console.warn('[seatalk] employee não encontrado (ou não "in position"), resposta crua:', JSON.stringify(body));
+  return achado ? achado.employee_code : null;
 }
 
 async function enviarMensagemDireta(employeeCode, texto) {

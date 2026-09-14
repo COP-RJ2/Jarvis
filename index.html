@@ -1108,53 +1108,58 @@
     }
     #login-screen.hidden { display: none; }
     .login-wrap {
-      display: flex; width: 100%; max-width: 900px;
-      min-height: 520px; border-radius: var(--radius-xl);
+      display: flex; width: 100%; max-width: 960px;
+      min-height: 560px; border-radius: var(--radius-xl);
       overflow: hidden; box-shadow: 0 24px 64px rgba(0,0,0,.6);
     }
-    .login-brand {
-      flex: 1;
-      background: linear-gradient(145deg, #1a0a00 0%, #3d1400 40%, #7a2800 100%);
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      padding: 48px 40px; gap: 20px;
-      position: relative; overflow: hidden;
-    }
-    .login-brand::before {
-      content: ''; position: absolute; inset: -60px;
-      background: radial-gradient(circle at 60% 40%, rgba(238,77,45,.25) 0%, transparent 65%);
-      pointer-events: none;
-    }
-    .login-brand-eye {
-      width: 80px; height: 80px;
-      background: linear-gradient(135deg, var(--orange), #ff8c00);
-      border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 34px; color: #fff;
-      animation: pulse-ring 2.8s ease infinite;
-    }
-    @keyframes pulse-ring {
-      0%,100% { box-shadow: 0 0 0 12px rgba(238,77,45,.15), 0 0 0 26px rgba(238,77,45,.06); }
-      50%      { box-shadow: 0 0 0 18px rgba(238,77,45,.10), 0 0 0 38px rgba(238,77,45,.03); }
-    }
-    .login-brand-name {
-      font-size: 26px; font-weight: 800; color: #fff;
-      letter-spacing: -.5px; text-align: center;
-    }
-    .login-brand-name span { color: var(--orange-ll); font-weight: 300; }
-    .login-brand-sub {
-      font-size: 12px; color: rgba(255,255,255,.4);
-      text-align: center; line-height: 1.6; max-width: 220px;
-    }
-    .login-brand-dots { display: flex; gap: 6px; margin-top: 8px; }
-    .login-brand-dots b { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,.2); display:inline-block; }
-    .login-brand-dots b:nth-child(2) { background: var(--orange); }
     .login-form-panel {
-      width: 380px; flex-shrink: 0;
+      width: 420px; flex-shrink: 0;
       background: var(--surface);
       display: flex; flex-direction: column;
       justify-content: center; padding: 48px 40px;
     }
+    .login-form-header { display: flex; align-items: center; gap: 12px; margin-bottom: 36px; }
+    .login-form-icon { width: 40px; height: 40px; flex-shrink: 0; }
+    .login-form-header-text { display: flex; flex-direction: column; }
+    .login-form-brand { font-size: 15px; font-weight: 800; color: var(--text); letter-spacing: .02em; }
+    .login-form-brand-sub { font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; }
+    .login-photo-panel {
+      flex: 1; position: relative; overflow: hidden;
+      display: flex; flex-direction: column; justify-content: space-between;
+    }
+    .login-photo-panel img {
+      position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+    }
+    .login-photo-overlay {
+      position: relative; z-index: 1; height: 100%;
+      display: flex; flex-direction: column; justify-content: space-between;
+      padding: 32px; color: #fff;
+      background: linear-gradient(0deg, rgba(11,21,40,.9) 0%, rgba(11,21,40,.55) 45%, rgba(11,21,40,.35) 100%);
+    }
+    .login-photo-status {
+      display: inline-flex; align-items: center; gap: 8px; align-self: flex-start;
+      background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.2);
+      backdrop-filter: blur(6px); border-radius: 20px;
+      padding: 6px 14px; font-size: 11px; font-weight: 600;
+    }
+    .login-photo-status b {
+      width: 7px; height: 7px; border-radius: 50%; background: #34d399;
+      box-shadow: 0 0 0 3px rgba(52,211,153,.25); display: inline-block;
+    }
+    .login-photo-bottom h2 { font-size: 24px; font-weight: 800; letter-spacing: -.3px; margin-bottom: 8px; line-height: 1.2; }
+    .login-photo-bottom p { font-size: 13px; color: rgba(255,255,255,.8); max-width: 340px; line-height: 1.5; }
+    .login-options { display: flex; flex-direction: column; gap: 12px; margin-top: 18px; }
+    .login-option-card {
+      border: 1.5px solid var(--border); border-radius: var(--radius-lg);
+      padding: 14px 16px; background: var(--surface-2);
+    }
+    .login-option-label { font-size: 12px; font-weight: 700; color: var(--text-muted); display: flex; align-items: center; gap: 8px; }
+    .login-btn.login-btn-outline {
+      background: transparent !important; color: var(--text-muted);
+      border: 1.5px solid var(--border); box-shadow: none;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .login-btn.login-btn-outline:hover { color: var(--orange); border-color: var(--orange); box-shadow: none; transform: none; }
     .login-form-title { font-size: 20px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
     .login-form-sub { font-size: 12px; color: var(--text-muted); margin-bottom: 32px; }
     .login-field { margin-bottom: 16px; }
@@ -1230,7 +1235,7 @@
     .user-menu-item.danger { color: #ef4444; }
     .user-menu-item.danger:hover { background: rgba(239,68,68,.08); }
     @media(max-width: 640px) {
-      .login-brand { display: none; }
+      .login-photo-panel { display: none; }
       .login-form-panel { width: 100%; }
       .login-wrap { max-width: 400px; }
     }
@@ -1246,36 +1251,6 @@
       box-shadow: none !important;
       padding: 0 !important;
       width: auto !important; height: auto !important;
-    }
-
-    /* Login brand eye override */
-    .login-brand-eye {
-      background: none !important;
-      border-radius: 0 !important;
-      width: auto !important; height: auto !important;
-      box-shadow: none !important;
-      animation: none !important;
-    }
-
-    /* Login brand name — two lines */
-    .login-brand-name {
-      display: flex; flex-direction: column;
-      align-items: center; gap: 2px;
-    }
-    .jarvis-top {
-      font-size: 28px; font-weight: 900; letter-spacing: .12em;
-      color: #fff;
-      text-shadow: 0 0 20px rgba(238,77,45,.6), 0 0 40px rgba(238,77,45,.3);
-    }
-    .jarvis-ver {
-      font-size: 11px; font-weight: 700; letter-spacing: .25em;
-      color: var(--orange-ll); text-transform: uppercase;
-      opacity: .85;
-    }
-    .jarvis-sub-bottom {
-      font-size: 12px; font-weight: 700; letter-spacing: .2em;
-      color: rgba(255,255,255,.5); text-transform: uppercase;
-      margin-top: 2px;
     }
 
     /* Sidebar logo text — JARVIS */
@@ -3076,8 +3051,8 @@
     @media (max-width: 760px) {
       #main-content { padding: 16px; }
       .login-wrap { max-width: 400px; }
-      .login-brand { border-radius: 22px 22px 0 0 !important; }
-      .login-form-panel { border-radius: 0 0 22px 22px !important; }
+      .login-form-panel { border-radius: 22px 22px 0 0 !important; }
+      .login-photo-panel { border-radius: 0 0 22px 22px !important; }
     }
     /* O toggle claro/escuro usa uma paleta antiga que não combina com esta
        camada visual — ocultado até o sistema de temas ser refeito pra ela. */
@@ -4289,87 +4264,36 @@
 </head>
 <body>
 
-<!-- LOGIN SCREEN -->
+<!-- LOGIN SCREEN — estrutura pedida pelo Roberto em 2026-09-14 (proposta
+     visual dele, arquivo code.html): esquerda = formulário/opções de login,
+     direita = foto. Inverte o layout anterior (marca à esquerda, form à
+     direita). -->
 <div id="login-screen">
   <div class="login-wrap">
-    <div class="login-brand">
-      <div class="login-brand-eye"><svg class="jarvis-arc-lg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <radialGradient id="coreGradLg" cx="50%" cy="50%" r="50%">
-      <stop offset="0%"   stop-color="#fff8f0"/>
-      <stop offset="45%"  stop-color="#ff8c00"/>
-      <stop offset="100%" stop-color="#ee4d2d" stop-opacity="0.8"/>
-    </radialGradient>
-    <radialGradient id="bgGlow" cx="50%" cy="50%" r="50%">
-      <stop offset="0%"   stop-color="#ee4d2d" stop-opacity="0.15"/>
-      <stop offset="100%" stop-color="#ee4d2d" stop-opacity="0"/>
-    </radialGradient>
-    <filter id="glowLg" x="-30%" y="-30%" width="160%" height="160%">
-      <feGaussianBlur stdDeviation="2.5" result="blur"/>
-      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-    <filter id="glowCore" x="-60%" y="-60%" width="220%" height="220%">
-      <feGaussianBlur stdDeviation="4" result="blur"/>
-      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-  </defs>
-
-  <!-- ambient glow bg -->
-  <circle cx="50" cy="50" r="48" fill="url(#bgGlow)">
-    <animate attributeName="r" values="42;50;42" dur="3s" repeatCount="indefinite"/>
-    <animate attributeName="opacity" values="0.6;1;0.6" dur="3s" repeatCount="indefinite"/>
-  </circle>
-
-  <!-- outer ring — slow CW -->
-  <circle cx="50" cy="50" r="46" fill="none" stroke="#ee4d2d" stroke-width="1"
-    stroke-dasharray="5 4" opacity="0.4">
-    <animateTransform attributeName="transform" type="rotate" from="0 50 50" to="360 50 50" dur="12s" repeatCount="indefinite"/>
-  </circle>
-
-  <!-- ring 2 — CCW ticks -->
-  <circle cx="50" cy="50" r="40" fill="none" stroke="#ff8c00" stroke-width="2"
-    stroke-dasharray="8 3" opacity="0.6">
-    <animateTransform attributeName="transform" type="rotate" from="360 50 50" to="0 50 50" dur="7s" repeatCount="indefinite"/>
-  </circle>
-
-  <!-- ring 3 — structural arcs -->
-  <circle cx="50" cy="50" r="33" fill="none" stroke="#ee4d2d" stroke-width="1.5"
-    stroke-dasharray="14 5" opacity="0.75" filter="url(#glowLg)">
-    <animateTransform attributeName="transform" type="rotate" from="0 50 50" to="360 50 50" dur="5s" repeatCount="indefinite"/>
-  </circle>
-
-  <!-- ring 4 — inner fine segments -->
-  <circle cx="50" cy="50" r="25" fill="none" stroke="#ff8c00" stroke-width="1.2"
-    stroke-dasharray="3 2" opacity="0.6">
-    <animateTransform attributeName="transform" type="rotate" from="360 50 50" to="0 50 50" dur="3.5s" repeatCount="indefinite"/>
-  </circle>
-
-  <!-- ring 5 — innermost -->
-  <circle cx="50" cy="50" r="18" fill="none" stroke="#ee4d2d" stroke-width="1"
-    stroke-dasharray="4 3" opacity="0.5">
-    <animateTransform attributeName="transform" type="rotate" from="0 50 50" to="360 50 50" dur="2.5s" repeatCount="indefinite"/>
-  </circle>
-
-  <!-- core glow halo -->
-  <circle cx="50" cy="50" r="10" fill="#ee4d2d" opacity="0.2" filter="url(#glowCore)">
-    <animate attributeName="r" values="8;13;8" dur="2s" repeatCount="indefinite"/>
-    <animate attributeName="opacity" values="0.15;0.3;0.15" dur="2s" repeatCount="indefinite"/>
-  </circle>
-
-  <!-- core -->
-  <circle cx="50" cy="50" r="7" fill="url(#coreGradLg)" filter="url(#glowLg)">
-    <animate attributeName="r" values="6;8;6" dur="2s" repeatCount="indefinite"/>
-  </circle>
-</svg></div>
-      <div class="login-brand-name">
-        <span class="jarvis-top">JARVIS</span>
-        <span class="jarvis-ver">v 1 . 0</span>
-      </div>
-      <div class="login-brand-sub">Sistema de monitoramento operacional</div>
-      <div class="jarvis-sub-bottom">COP RJ2 2026</div>
-      <div class="login-brand-dots"><b></b><b></b><b></b></div>
-    </div>
     <div class="login-form-panel">
+      <div class="login-form-header">
+        <svg class="login-form-icon" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="coreGradSm" cx="50%" cy="50%" r="50%">
+              <stop offset="0%"   stop-color="#fff8f0"/>
+              <stop offset="45%"  stop-color="#ff8c00"/>
+              <stop offset="100%" stop-color="#ee4d2d" stop-opacity="0.8"/>
+            </radialGradient>
+          </defs>
+          <circle cx="50" cy="50" r="46" fill="none" stroke="#ee4d2d" stroke-width="1.5" stroke-dasharray="8 4" opacity="0.4">
+            <animateTransform attributeName="transform" type="rotate" from="0 50 50" to="360 50 50" dur="12s" repeatCount="indefinite"/>
+          </circle>
+          <circle cx="50" cy="50" r="33" fill="none" stroke="#ff8c00" stroke-width="2" stroke-dasharray="14 5" opacity="0.7">
+            <animateTransform attributeName="transform" type="rotate" from="360 50 50" to="0 50 50" dur="7s" repeatCount="indefinite"/>
+          </circle>
+          <circle cx="50" cy="50" r="14" fill="url(#coreGradSm)"/>
+        </svg>
+        <div class="login-form-header-text">
+          <span class="login-form-brand">JARVIS</span>
+          <span class="login-form-brand-sub">COP RJ2 · Dashboard Operacional</span>
+        </div>
+      </div>
+
       <!-- Login via "Login with SeaTalk" (pedido do Roberto em 2026-09-14) —
            substitui o modelo de código por DM porque as permissões de
            Bot/Employee da Open Platform ficaram pendentes de aprovação de
@@ -4381,15 +4305,37 @@
           <i class="fas fa-circle-exclamation"></i>
           <span id="login-error-msg"></span>
         </div>
-        <div style="display:flex;justify-content:center;margin-top:18px">
-          <div id="seatalk_login_app_info" data-response_type="code" data-state="jarvis"></div>
-          <div id="seatalk_login_button" data-size="large" data-logo_size="22"
-            data-copywriting="Entrar com SeaTalk" data-theme="light" data-align="center"></div>
+
+        <div class="login-options">
+          <div class="login-option-card" id="login-option-qr">
+            <div class="login-option-label"><i class="fas fa-qrcode"></i> Entrar com QR Code</div>
+            <div style="display:flex;justify-content:center;margin-top:10px">
+              <div id="seatalk_login_app_info" data-response_type="code" data-state="jarvis"></div>
+              <div id="seatalk_login_button" data-size="large" data-logo_size="22"
+                data-copywriting="Entrar com SeaTalk" data-theme="light" data-align="center"></div>
+            </div>
+          </div>
+
+          <button class="login-btn login-btn-outline" onclick="authTwoStepsEmBreve()">
+            <i class="fas fa-shield-halved"></i> Verificação em duas etapas
+          </button>
         </div>
       </div>
 
       <div class="login-footer">
         JARVIS v1.0 · COP RJ2 2026 · Acesso restrito
+      </div>
+    </div>
+    <div class="login-photo-panel">
+      <img src="assets/login-hero.jpg" alt="Centro logístico COP RJ2" />
+      <div class="login-photo-overlay">
+        <div class="login-photo-top">
+          <span class="login-photo-status"><b></b> Sistema Operacional Ativo</span>
+        </div>
+        <div class="login-photo-bottom">
+          <h2>Visibilidade. Controle. Performance.</h2>
+          <p>Monitore a operação COP RJ2 em tempo real, com governança operacional unificada.</p>
+        </div>
       </div>
     </div>
   </div>
@@ -7296,6 +7242,14 @@ const SEATALK_ERROS = {
 function authShowError(msg){
   document.getElementById('login-error-msg').textContent = msg;
   document.getElementById('login-error').classList.add('show');
+}
+
+// Botão fica visível desde já (pedido do Roberto), mas a permissão de Bot/
+// Employee da Open Platform ainda está pendente de aprovação — ver
+// api/_seatalk.js. Enquanto isso só avisa; troca pra ligar de verdade
+// assim que a permissão for aprovada.
+function authTwoStepsEmBreve(){
+  authShowError('Verificação em duas etapas chega em breve — por enquanto, entra com o QR Code do SeaTalk.');
 }
 
 // Carrega o botão oficial do SeaTalk só depois de saber o App ID (não é

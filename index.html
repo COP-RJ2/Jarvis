@@ -7250,12 +7250,9 @@ function applyAccessControl(){
 }
 
 /* ================================================================
-   AUTH — session via sessionStorage
+   AUTH
 ================================================================ */
 let currentUser = null;
-const PORTAL_USER = {
-  name: 'Operações', initials: 'OP', role: 'Administrador', email: 'portal@interno'
-};
 
 function greeting(){
   const h = new Date().getHours();
@@ -7354,6 +7351,9 @@ function enterPortal(user){
   DataService.load('tratativas').then(({data}) => {
     if(data?.notificacoes) renderNotifications(data.notificacoes);
   });
+  tvModeInit();
+  tvcfgSeedDefaultPresets();
+  jarvisApplyPageTags();
 }
 
 /* ================================================================
@@ -7584,16 +7584,6 @@ function tvRotationStop(){
   clstAutoScrollStop();
   monTvStop();
 }
-
-/* ================================================================
-   PORTAL INITIALIZATION — modo kiosk, sem tela de login
-================================================================ */
-document.addEventListener('DOMContentLoaded', () => {
-  enterPortal(PORTAL_USER);
-  tvModeInit();
-  tvcfgSeedDefaultPresets();
-  jarvisApplyPageTags();
-});
 
 /* ================================================================
    SIDEBAR

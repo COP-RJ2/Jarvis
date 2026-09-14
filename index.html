@@ -4370,37 +4370,51 @@
       <div class="login-brand-dots"><b></b><b></b><b></b></div>
     </div>
     <div class="login-form-panel">
-      <div class="login-form-title">Bem-vindo de volta</div>
-      <div class="login-form-sub">Faça login para acessar o portal</div>
-      <div class="login-error" id="login-error">
-        <i class="fas fa-circle-exclamation"></i>
-        <span id="login-error-msg">E-mail ou senha incorretos.</span>
-      </div>
-      <div class="login-field">
-        <label class="login-label">E-mail</label>
-        <div class="login-input-wrap">
-          <i class="fas fa-envelope"></i>
-          <input type="email" class="login-input" id="login-email"
-            placeholder="seu@email.com" autocomplete="email" />
+      <!-- Etapa 1: e-mail corporativo — dispara o código via SeaTalk -->
+      <div id="login-step-email">
+        <div class="login-form-title">Bem-vindo de volta</div>
+        <div class="login-form-sub">Informe seu e-mail corporativo pra receber o código de acesso pelo SeaTalk</div>
+        <div class="login-error" id="login-error">
+          <i class="fas fa-circle-exclamation"></i>
+          <span id="login-error-msg"></span>
         </div>
-      </div>
-      <div class="login-field">
-        <label class="login-label">Senha</label>
-        <div class="pw-group">
-          <div class="login-input-wrap" style="flex:1">
-            <i class="fas fa-lock"></i>
-            <input type="password" class="login-input" id="login-password"
-              placeholder="••••••••" autocomplete="current-password"
-              style="border-radius:var(--radius) 0 0 var(--radius);border-right:none" />
+        <div class="login-field">
+          <label class="login-label">E-mail</label>
+          <div class="login-input-wrap">
+            <i class="fas fa-envelope"></i>
+            <input type="email" class="login-input" id="login-email"
+              placeholder="seu@shopee.com" autocomplete="email" />
           </div>
-          <button class="login-pw-toggle" onclick="togglePw()" type="button" tabindex="-1" title="Mostrar/ocultar senha">
-            <i class="fas fa-eye-slash" id="pw-eye"></i>
-          </button>
         </div>
+        <button class="login-btn" id="login-btn-request" onclick="authRequestCode()">
+          <i class="fas fa-paper-plane"></i> Enviar código
+        </button>
       </div>
-      <button class="login-btn" id="login-btn" onclick="doLogin()">
-        <i class="fas fa-arrow-right-to-bracket"></i> Entrar
-      </button>
+
+      <!-- Etapa 2: código de 6 dígitos recebido no SeaTalk -->
+      <div id="login-step-code" style="display:none">
+        <div class="login-form-title">Confirme seu acesso</div>
+        <div class="login-form-sub">Digite o código de 6 dígitos que mandamos pro seu SeaTalk (<span id="login-code-email"></span>)</div>
+        <div class="login-error" id="login-error-2">
+          <i class="fas fa-circle-exclamation"></i>
+          <span id="login-error-msg-2"></span>
+        </div>
+        <div class="login-field">
+          <label class="login-label">Código</label>
+          <div class="login-input-wrap">
+            <i class="fas fa-key"></i>
+            <input type="text" class="login-input" id="login-code" maxlength="6" inputmode="numeric"
+              placeholder="000000" autocomplete="one-time-code" style="letter-spacing:4px" />
+          </div>
+        </div>
+        <button class="login-btn" id="login-btn-verify" onclick="authVerifyCode()">
+          <i class="fas fa-arrow-right-to-bracket"></i> Entrar
+        </button>
+        <button class="login-btn" style="background:transparent;color:var(--text-muted);margin-top:8px" onclick="authBackToEmail()">
+          <i class="fas fa-arrow-left"></i> Trocar e-mail / reenviar código
+        </button>
+      </div>
+
       <div class="login-footer">
         JARVIS v1.0 · COP RJ2 2026 · Acesso restrito
       </div>
@@ -4419,6 +4433,9 @@
   </div>
   <div class="user-menu-item" onclick="location.reload()">
     <i class="fas fa-rotate-right"></i> Atualizar portal
+  </div>
+  <div class="user-menu-item danger" onclick="authLogout()">
+    <i class="fas fa-arrow-right-from-bracket"></i> Sair
   </div>
 </div>
 
@@ -7201,104 +7218,10 @@ const MOCK = {
   }
 };
 
-/* ================================================================
-   USER DATABASE — adicione / edite usuários aqui
-   Formato: { email, password, name, initials, role }
-================================================================ */
-const USERS = [
-  { email: 'admin', password: 'admin123', name: 'Administrador', initials: 'AD', role: 'Administrador', active: true, createdBy: 'Sistema', createdAt: '01/01/2026' },
-  { email: 'kellvin.pinto@shopee.com', password: 'admin123', name: 'Kellvin Pinto', initials: 'KP', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'camila.colares@shopee.com', password: 'admin123', name: 'Camila Colares', initials: 'CC', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'alan.almeida@shopee.com', password: 'admin123', name: 'Alan Almeida', initials: 'AA', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'bruno.cabral@shopee.com', password: 'admin123', name: 'Bruno Cabral', initials: 'BC', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'fabio.ferreira@shopeemobile-external.com', password: 'admin123', name: 'Fabio Ferreira', initials: 'FF', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'gessica.velloso@shopee.com', password: 'admin123', name: 'Gessica Velloso', initials: 'GV', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'heloisa.lopes@shopee.com', password: 'admin123', name: 'Heloisa Lopes', initials: 'HL', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'max.junior@shopee.com', password: 'admin123', name: 'Max Junior', initials: 'MJ', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'ramon.silva@shopee.com', password: 'admin123', name: 'Ramon Silva', initials: 'RS', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'valdemir.junior@shopee.com', password: 'admin123', name: 'Valdemir Junior', initials: 'VJ', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'debora.raquel@shopee.com', password: 'admin123', name: 'Debora Raquel', initials: 'DR', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'priscila.nascimento@shopee.com', password: 'admin123', name: 'Priscila Nascimento', initials: 'PN', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'fernanda.mnascimento@shopee.com', password: 'admin123', name: 'Fernanda Mnascimento', initials: 'FM', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'vagner.cruz@shopee.com', password: 'admin123', name: 'Vagner Cruz', initials: 'VC', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'ursula.fragata@shopee.com', password: 'admin123', name: 'Ursula Fragata', initials: 'UF', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'ruan.milton@shopee.com', password: 'admin123', name: 'Ruan Milton', initials: 'RM', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'roberto.cardoso@shopee.com', password: 'admin123', name: 'Roberto Cardoso', initials: 'RC', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'jonathan.fernandes@shopee.com', password: 'admin123', name: 'Jonathan Fernandes', initials: 'JF', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'anderson.mssoares@shopee.com', password: 'admin123', name: 'Anderson Mssoares', initials: 'AM', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'beatriz.santo@shopee.com', password: 'admin123', name: 'Beatriz Santo', initials: 'BS', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'erivania.vieira@shopee.com', password: 'admin123', name: 'Erivania Vieira', initials: 'EV', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'evandro.costa@shopee.com', password: 'admin123', name: 'Evandro Costa', initials: 'EC', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'camille.martins@shopee.com', password: 'admin123', name: 'Camille Martins', initials: 'CM', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'benedito.filho@shopee.com', password: 'admin123', name: 'Benedito Filho', initials: 'BF', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'roberto.barboza@shopee.com', password: 'admin123', name: 'Roberto Barboza', initials: 'RB', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'joao.alvarenga@shopee.com', password: 'admin123', name: 'Joao Alvarenga', initials: 'JA', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'gabriela.duarte@shopee.com', password: 'admin123', name: 'Gabriela Duarte', initials: 'GD', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'michel.rdsilva@shopee.com', password: 'admin123', name: 'Michel Rdsilva', initials: 'MR', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'tharciso.mendes@shopee.com', password: 'admin123', name: 'Tharciso Mendes', initials: 'TM', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'paulo.vmagalhaes@shopee.com', password: 'admin123', name: 'Paulo Vmagalhaes', initials: 'PV', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'alexander.teixeira@shopee.com', password: 'admin123', name: 'Alexander Teixeira', initials: 'AT', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'edson.sousa@shopee.com', password: 'admin123', name: 'Edson Sousa', initials: 'ES', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'fabiano.lsilva@shopee.com', password: 'admin123', name: 'Fabiano Lsilva', initials: 'FL', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'andre.marins@shopee.com', password: 'admin123', name: 'Andre Marins', initials: 'AM', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'douglas.csousa@shopee.com', password: 'admin123', name: 'Douglas Csousa', initials: 'DC', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'adryene.freire@shopee.com', password: 'admin123', name: 'Adryene Freire', initials: 'AF', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'francisco.oscar@shopee.com', password: 'admin123', name: 'Francisco Oscar', initials: 'FO', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'william.purcell@shopee.com', password: 'admin123', name: 'William Purcell', initials: 'WP', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'glauciane.lopes@shopee.com', password: 'admin123', name: 'Glauciane Lopes', initials: 'GL', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'rivadavia.silva@shopee.com', password: 'admin123', name: 'Rivadavia Silva', initials: 'RS', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'carlos.david@shopee.com', password: 'admin123', name: 'Carlos David', initials: 'CD', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'carla.nascimento@shopee.com', password: 'admin123', name: 'Carla Nascimento', initials: 'CN', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'rafael.pdsilva@shopee.com', password: 'admin123', name: 'Rafael Pdsilva', initials: 'RP', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'jonathas.silva@shopeemobile-external.com', password: 'admin123', name: 'Jonathas Silva', initials: 'JS', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'glaciele.barbosa@shopee.com', password: 'admin123', name: 'Glaciele Barbosa', initials: 'GB', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'patrick.caldeira@shopee.com', password: 'admin123', name: 'Patrick Caldeira', initials: 'PC', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'eliezer.marinho@shopee.com', password: 'admin123', name: 'Eliezer Marinho', initials: 'EM', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'diana.constantino@shopee.com', password: 'admin123', name: 'Diana Constantino', initials: 'DC', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'sthefany.correa@shopee.com', password: 'admin123', name: 'Sthefany Correa', initials: 'SC', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'marcelle.lemos@shopee.com', password: 'admin123', name: 'Marcelle Lemos', initials: 'ML', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'alexandre.nascimento@shopee.com', password: 'admin123', name: 'Alexandre Nascimento', initials: 'AN', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'douglas.moraessantos@shopee.com', password: 'admin123', name: 'Douglas Moraessantos', initials: 'DM', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'leticia.cnascimento@shopee.com', password: 'admin123', name: 'Leticia Cnascimento', initials: 'LC', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'cristiano.mendes@shopee.com', password: 'admin123', name: 'Cristiano Mendes', initials: 'CM', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'joao.caraujo@shopee.com', password: 'admin123', name: 'Joao Caraujo', initials: 'JC', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'ulisses.mello@shopee.com', password: 'admin123', name: 'Ulisses Mello', initials: 'UM', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'diego.cassador@shopee.com', password: 'admin123', name: 'Diego Cassador', initials: 'DC', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'ramon.juvenal@shopee.com', password: 'admin123', name: 'Ramon Juvenal', initials: 'RJ', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'ronaldo.oliveira@shopee.com', password: 'admin123', name: 'Ronaldo Oliveira', initials: 'RO', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'lucas.carvalho@shopee.com', password: 'admin123', name: 'Lucas Carvalho', initials: 'LC', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'thiagoc.oliveira@shopee.com', password: 'admin123', name: 'Thiagoc Oliveira', initials: 'TO', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'anderson.pinheiro@shopee.com', password: 'admin123', name: 'Anderson Pinheiro', initials: 'AP', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'alexandre.ferreira@shopee.com', password: 'admin123', name: 'Alexandre Ferreira', initials: 'AF', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'marcia.jesus@shopee.com', password: 'admin123', name: 'Marcia Jesus', initials: 'MJ', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'diogo.rsilva@shopee.com', password: 'admin123', name: 'Diogo Rsilva', initials: 'DR', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'luiz.vieira@shopee.com', password: 'admin123', name: 'Luiz Vieira', initials: 'LV', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'eveline.lima@shopee.com', password: 'admin123', name: 'Eveline Lima', initials: 'EL', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'marcos.sousa@shopee.com', password: 'admin123', name: 'Marcos Sousa', initials: 'MS', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'bruna.costa@shopee.com', password: 'admin123', name: 'Bruna Costa', initials: 'BC', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'andrey.dias@shopee.com', password: 'admin123', name: 'Andrey Dias', initials: 'AD', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'anapaula.cardoso@shopee.com', password: 'admin123', name: 'Anapaula Cardoso', initials: 'AC', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'rubens.lima@shopee.com', password: 'admin123', name: 'Rubens Lima', initials: 'RL', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'vitoriaa.oliveira@shopee.com', password: 'admin123', name: 'Vitoriaa Oliveira', initials: 'VO', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'felipe.salvador@shopee.com', password: 'admin123', name: 'Felipe Salvador', initials: 'FS', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'victor.fonseca@shopee.com', password: 'admin123', name: 'Victor Fonseca', initials: 'VF', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'tiago.gomes@shopee.com', password: 'admin123', name: 'Tiago Gomes', initials: 'TG', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'marcio.costa@shopee.com', password: 'admin123', name: 'Marcio Costa', initials: 'MC', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'gilson.conceicao@shopee.com', password: 'admin123', name: 'Gilson Conceicao', initials: 'GC', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'jose.genovez@shopee.com', password: 'admin123', name: 'Jose Genovez', initials: 'JG', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'vitor.brunes@shopee.com', password: 'admin123', name: 'Vitor Brunes', initials: 'VB', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'renata.msilva@shopee.com', password: 'admin123', name: 'Renata Msilva', initials: 'RM', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'thiago.leonel@shopee.com', password: 'admin123', name: 'Thiago Leonel', initials: 'TL', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'elisabete.silveira@shopee.com', password: 'admin123', name: 'Elisabete Silveira', initials: 'ES', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'raymenson.kelwen@shopee.com', password: 'admin123', name: 'Raymenson Kelwen', initials: 'RK', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'wallace.abreu@shopee.com', password: 'admin123', name: 'Wallace Abreu', initials: 'WA', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'rodrigo.santana@shopee.com', password: 'admin123', name: 'Rodrigo Santana', initials: 'RS', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'jaqueline.adao@shopee.com', password: 'admin123', name: 'Jaqueline Adao', initials: 'JA', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'elisangela.benevides@shopee.com', password: 'admin123', name: 'Elisangela Benevides', initials: 'EB', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'alex.cardoso@shopee.com', password: 'admin123', name: 'Alex Cardoso', initials: 'AC', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'wiliam.maria@shopee.com', password: 'admin123', name: 'Wiliam Maria', initials: 'WM', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-  { email: 'cristiano.leal@shopee.com', password: 'admin123', name: 'Cristiano Leal', initials: 'CL', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
-];
+/* Identidade do usuario agora vem do servidor (POST /api/auth?verify=1),
+   nao existe mais senha nem lista fixa de e-mails no front (2FA via
+   SeaTalk, pedido do Roberto em 2026-09-14 -- ver api/auth.js e
+   api/_users.js). */
 
 /* ================================================================
    ACCESS CONTROL — Define quais seções cada role pode acessar
@@ -7387,42 +7310,102 @@ function applyUser(user){
   if(ue) ue.textContent = user.email;
 }
 
-function doLogin(){
-  const email    = document.getElementById('login-email').value.trim().toLowerCase();
-  const password = document.getElementById('login-password').value;
-  const btn      = document.getElementById('login-btn');
-  const errBox   = document.getElementById('login-error');
-  const errMsg   = document.getElementById('login-error-msg');
+// Verificação em 2 etapas via SeaTalk (pedido do Roberto em 2026-09-14) —
+// substitui o login por senha antigo. Etapa 1 pede o código (POST
+// /api/auth?request=1), etapa 2 confere (POST /api/auth?verify=1); quem
+// autentica de verdade é o servidor (ver api/auth.js) — o front só troca
+// as duas telas e mostra erro.
+let AUTH_EMAIL_ATUAL = '';
 
-  errBox.classList.remove('show');
-  document.getElementById('login-email').classList.remove('input-error');
-  document.getElementById('login-password').classList.remove('input-error');
+function authShowError(campo, msg){
+  const box = document.getElementById('login-error' + campo);
+  const span = document.getElementById('login-error-msg' + campo);
+  span.textContent = msg;
+  box.classList.add('show');
+}
+function authClearErrors(){
+  document.getElementById('login-error').classList.remove('show');
+  document.getElementById('login-error-2').classList.remove('show');
+}
 
-  if(!email || !password){
-    errMsg.textContent = 'Preencha e-mail e senha.';
-    errBox.classList.add('show');
-    return;
-  }
+async function authRequestCode(){
+  const email = document.getElementById('login-email').value.trim().toLowerCase();
+  const btn = document.getElementById('login-btn-request');
+  authClearErrors();
+
+  if(!email){ authShowError('', 'Informe seu e-mail.'); return; }
 
   btn.disabled = true;
-  btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Entrando…';
+  btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Enviando…';
+  try {
+    const r = await fetch('/api/auth?request=1', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    const j = await r.json();
+    if(!j.ok){ authShowError('', j.erro || 'Não foi possível enviar o código.'); return; }
 
-  // Simulate async auth (replace with real API call when ready)
-  setTimeout(() => {
-    const user = USERS.find(u => u.email === email && u.password === password);
-    if(user){
-      sessionStorage.setItem('od2-user', JSON.stringify(user));
-      enterPortal(user);
-    } else {
-      errMsg.textContent = 'E-mail ou senha incorretos.';
-      errBox.classList.add('show');
-      document.getElementById('login-email').classList.add('input-error');
-      document.getElementById('login-password').classList.add('input-error');
+    AUTH_EMAIL_ATUAL = email;
+    document.getElementById('login-code-email').textContent = email;
+    document.getElementById('login-step-email').style.display = 'none';
+    document.getElementById('login-step-code').style.display = '';
+    document.getElementById('login-code').value = '';
+    document.getElementById('login-code').focus();
+    if(j.aviso) showToast?.(j.aviso); // modo dev sem SeaTalk configurado ainda
+  } catch(err){
+    authShowError('', 'Falha de conexão — tenta de novo.');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar código';
+  }
+}
+
+async function authVerifyCode(){
+  const code = document.getElementById('login-code').value.trim();
+  const btn = document.getElementById('login-btn-verify');
+  authClearErrors();
+
+  if(!code || code.length !== 6){ authShowError('2', 'Digite os 6 dígitos do código.'); return; }
+
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Confirmando…';
+  try {
+    const r = await fetch('/api/auth?verify=1', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: AUTH_EMAIL_ATUAL, code }),
+    });
+    const j = await r.json();
+    if(!j.ok){
+      authShowError('2', j.erro || 'Código incorreto.');
       btn.disabled = false;
       btn.innerHTML = '<i class="fas fa-arrow-right-to-bracket"></i> Entrar';
+      return;
     }
-  }, 600);
+    enterPortal(j.user);
+  } catch(err){
+    authShowError('2', 'Falha de conexão — tenta de novo.');
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-arrow-right-to-bracket"></i> Entrar';
+  }
 }
+
+function authBackToEmail(){
+  authClearErrors();
+  document.getElementById('login-step-code').style.display = 'none';
+  document.getElementById('login-step-email').style.display = '';
+}
+
+// Sessão persiste 30 dias no servidor — checa ao carregar a página pra não
+// pedir login de novo toda hora (antes disso não existia sessão real
+// nenhuma, só um mock de senha sem validação no backend).
+async function authCheckSessao(){
+  try {
+    const r = await fetch('/api/auth?me=1');
+    const j = await r.json();
+    if(j.ok && j.user) enterPortal(j.user);
+  } catch(err){ /* sem sessão, fica na tela de login mesmo */ }
+}
+document.addEventListener('DOMContentLoaded', authCheckSessao);
 
 function enterPortal(user){
   document.getElementById('login-screen').classList.add('hidden');
@@ -7462,16 +7445,10 @@ document.addEventListener('click', e => {
 /* ================================================================
    PASSWORD TOGGLE
 ================================================================ */
-function togglePw(){
-  const input = document.getElementById('login-password');
-  const icon  = document.getElementById('pw-eye');
-  if(input.type === 'password'){
-    input.type = 'text';
-    icon.className = 'fas fa-eye';
-  } else {
-    input.type = 'password';
-    icon.className = 'fas fa-eye-slash';
-  }
+async function authLogout(){
+  closeUserMenu();
+  try { await fetch('/api/auth?logout=1', { method: 'POST' }); } catch(err){ /* segue o baile */ }
+  location.reload();
 }
 
 /* ================================================================

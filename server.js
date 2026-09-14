@@ -18,11 +18,26 @@
  * Vercel (ver comentário em api/overview.js).
  */
 const express = require('express');
+const session = require('express-session');
+const PgSession = require('connect-pg-simple')(session);
 const fs = require('fs');
 const path = require('path');
+const { pool } = require('./db');
 
 const app = express();
 app.use(express.json());
+
+// --- Sessão (pedido do Roberto em 2026-09-14, verificação em 2 etapas via
+//     SeaTalk): guardada no Postgres em vez de memória — o Railway
+//     reimplanta a cada push, e com MemoryStore isso deslogaria todo mundo
+//     a cada deploy (nesse projeto, deploy é praticamente todo dia). ---
+app.use(session({
+  store: new PgSession({ pool, tableName: 'user_sessions', createTableIfMissing: true }),
+  secret: process.env.SESSION_SECRET || 'jarvis-dev-secret-troque-em-producao',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { maxAge: 30 * 24 * 60 * 60 * 1000, httpOnly: true, sameSite: 'lax' }, // 30 dias
+}));
 
 // --- Rotas da API: cada api/<nome>.js (exceto os que começam com "_")
 //     vira /api/<nome>, montado pro método HTTP que o handler já trata
@@ -34,7 +49,13 @@ fs.readdirSync(API_DIR)
   .forEach(f => {
     const nome = f.replace(/\.js$/, '');
     const handler = require(path.join(API_DIR, f));
-    app.all(`/api/${nome}`, (req, res) => {
+    app.all(`/api/${nome}`, (req, res, next) => {
+      // /api/auth é o único endpoint acessível sem sessão — é ele quem
+      // CRIA a sessão. Todo o resto exige login (2 etapas já concluídas).
+      if (nome !== 'auth' && !req.session.user) {
+        res.status(401).json({ ok: false, erro: 'Não autenticado.' });
+        return;
+      }
       Promise.resolve(handler(req, res)).catch(err => {
         console.error(`[api/${nome}]`, err);
         if (!res.headersSent) res.status(500).json({ ok: false, erro: err.message });
@@ -44,7 +65,9 @@ fs.readdirSync(API_DIR)
 
 // --- Front estático: index.html, arvore.html, checkpoints/, olho-de-deus/,
 //     jornais/, informativos/, assets/ — tudo que já vivia na raiz do repo
-//     e a Vercel servia como estático por padrão. ---
+//     e a Vercel servia como estático por padrão. O HTML em si continua
+//     público (é só a casca da SPA, sem dado nenhum embutido) — quem
+//     protege de verdade são as rotas /api/* acima. ---
 app.use(express.static(__dirname));
 
 const PORT = process.env.PORT || 3000;

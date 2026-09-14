@@ -4370,49 +4370,22 @@
       <div class="login-brand-dots"><b></b><b></b><b></b></div>
     </div>
     <div class="login-form-panel">
-      <!-- Etapa 1: e-mail corporativo — dispara o código via SeaTalk -->
-      <div id="login-step-email">
+      <!-- Login via "Login with SeaTalk" (pedido do Roberto em 2026-09-14) —
+           substitui o modelo de código por DM porque as permissões de
+           Bot/Employee da Open Platform ficaram pendentes de aprovação de
+           admin; essa capability já vem habilitada por padrão. -->
+      <div id="login-step-seatalk">
         <div class="login-form-title">Bem-vindo de volta</div>
-        <div class="login-form-sub">Informe seu e-mail corporativo pra receber o código de acesso pelo SeaTalk</div>
+        <div class="login-form-sub">Entre com sua conta SeaTalk corporativa</div>
         <div class="login-error" id="login-error">
           <i class="fas fa-circle-exclamation"></i>
           <span id="login-error-msg"></span>
         </div>
-        <div class="login-field">
-          <label class="login-label">E-mail</label>
-          <div class="login-input-wrap">
-            <i class="fas fa-envelope"></i>
-            <input type="email" class="login-input" id="login-email"
-              placeholder="seu@shopee.com" autocomplete="email" />
-          </div>
+        <div style="display:flex;justify-content:center;margin-top:18px">
+          <div id="seatalk_login_app_info" data-response_type="code" data-state="jarvis"></div>
+          <div id="seatalk_login_button" data-size="large" data-logo_size="22"
+            data-copywriting="Entrar com SeaTalk" data-theme="light" data-align="center"></div>
         </div>
-        <button class="login-btn" id="login-btn-request" onclick="authRequestCode()">
-          <i class="fas fa-paper-plane"></i> Enviar código
-        </button>
-      </div>
-
-      <!-- Etapa 2: código de 6 dígitos recebido no SeaTalk -->
-      <div id="login-step-code" style="display:none">
-        <div class="login-form-title">Confirme seu acesso</div>
-        <div class="login-form-sub">Digite o código de 6 dígitos que mandamos pro seu SeaTalk (<span id="login-code-email"></span>)</div>
-        <div class="login-error" id="login-error-2">
-          <i class="fas fa-circle-exclamation"></i>
-          <span id="login-error-msg-2"></span>
-        </div>
-        <div class="login-field">
-          <label class="login-label">Código</label>
-          <div class="login-input-wrap">
-            <i class="fas fa-key"></i>
-            <input type="text" class="login-input" id="login-code" maxlength="6" inputmode="numeric"
-              placeholder="000000" autocomplete="one-time-code" style="letter-spacing:4px" />
-          </div>
-        </div>
-        <button class="login-btn" id="login-btn-verify" onclick="authVerifyCode()">
-          <i class="fas fa-arrow-right-to-bracket"></i> Entrar
-        </button>
-        <button class="login-btn" style="background:transparent;color:var(--text-muted);margin-top:8px" onclick="authBackToEmail()">
-          <i class="fas fa-arrow-left"></i> Trocar e-mail / reenviar código
-        </button>
       </div>
 
       <div class="login-footer">
@@ -7310,100 +7283,58 @@ function applyUser(user){
   if(ue) ue.textContent = user.email;
 }
 
-// Verificação em 2 etapas via SeaTalk (pedido do Roberto em 2026-09-14) —
-// substitui o login por senha antigo. Etapa 1 pede o código (POST
-// /api/auth?request=1), etapa 2 confere (POST /api/auth?verify=1); quem
-// autentica de verdade é o servidor (ver api/auth.js) — o front só troca
-// as duas telas e mostra erro.
-let AUTH_EMAIL_ATUAL = '';
+// Login via "Login with SeaTalk" (pedido do Roberto em 2026-09-14) —
+// substitui o login por senha antigo e, depois, o modelo de código por DM
+// (permissões de Bot/Employee ficaram pendentes de aprovação de admin no
+// SeaTalk). O botão oficial redireciona pro SeaTalk; a volta cai direto em
+// GET /api/auth?seatalk_callback=1 no servidor (ver api/auth.js), que abre
+// a sessão e redireciona de volta pra essa página com ?erro=... se falhar.
 
-function authShowError(campo, msg){
-  const box = document.getElementById('login-error' + campo);
-  const span = document.getElementById('login-error-msg' + campo);
-  span.textContent = msg;
-  box.classList.add('show');
+const SEATALK_ERROS = {
+  seatalk_sem_code: 'Login cancelado ou incompleto — tenta de novo.',
+  seatalk_falhou: 'Não foi possível confirmar seu login pelo SeaTalk agora. Tenta de novo em instantes.',
+  dominio_nao_permitido: 'Use uma conta @shopee.com ou @shopeemobile-external.com.',
+};
+
+function authShowError(msg){
+  document.getElementById('login-error-msg').textContent = msg;
+  document.getElementById('login-error').classList.add('show');
 }
-function authClearErrors(){
-  document.getElementById('login-error').classList.remove('show');
-  document.getElementById('login-error-2').classList.remove('show');
-}
 
-async function authRequestCode(){
-  const email = document.getElementById('login-email').value.trim().toLowerCase();
-  const btn = document.getElementById('login-btn-request');
-  authClearErrors();
-
-  if(!email){ authShowError('', 'Informe seu e-mail.'); return; }
-
-  btn.disabled = true;
-  btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Enviando…';
+// Carrega o botão oficial do SeaTalk só depois de saber o App ID (não é
+// segredo, mas também não faz sentido deixar hardcoded no HTML público).
+async function initSeatalkLogin(){
   try {
-    const r = await fetch('/api/auth?request=1', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
-    });
+    const r = await fetch('/api/auth?config=1');
     const j = await r.json();
-    if(!j.ok){ authShowError('', j.erro || 'Não foi possível enviar o código.'); return; }
+    if(!j.ok || !j.appId){ authShowError('Login do SeaTalk não configurado — avisa o time do JARVIS.'); return; }
 
-    AUTH_EMAIL_ATUAL = email;
-    document.getElementById('login-code-email').textContent = email;
-    document.getElementById('login-step-email').style.display = 'none';
-    document.getElementById('login-step-code').style.display = '';
-    document.getElementById('login-code').value = '';
-    document.getElementById('login-code').focus();
-    if(j.aviso) showToast?.(j.aviso); // modo dev sem SeaTalk configurado ainda
+    const appInfo = document.getElementById('seatalk_login_app_info');
+    appInfo.setAttribute('data-appid', j.appId);
+    appInfo.setAttribute('data-redirect_uri', location.origin + '/api/auth?seatalk_callback=1');
+
+    const script = document.createElement('script');
+    script.src = 'https://static.cdn.haiserve.com/seatalk/client/shared/sop/auth.js';
+    document.body.appendChild(script);
   } catch(err){
-    authShowError('', 'Falha de conexão — tenta de novo.');
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar código';
+    authShowError('Falha de conexão — recarregue a página.');
   }
-}
-
-async function authVerifyCode(){
-  const code = document.getElementById('login-code').value.trim();
-  const btn = document.getElementById('login-btn-verify');
-  authClearErrors();
-
-  if(!code || code.length !== 6){ authShowError('2', 'Digite os 6 dígitos do código.'); return; }
-
-  btn.disabled = true;
-  btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Confirmando…';
-  try {
-    const r = await fetch('/api/auth?verify=1', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: AUTH_EMAIL_ATUAL, code }),
-    });
-    const j = await r.json();
-    if(!j.ok){
-      authShowError('2', j.erro || 'Código incorreto.');
-      btn.disabled = false;
-      btn.innerHTML = '<i class="fas fa-arrow-right-to-bracket"></i> Entrar';
-      return;
-    }
-    enterPortal(j.user);
-  } catch(err){
-    authShowError('2', 'Falha de conexão — tenta de novo.');
-    btn.disabled = false;
-    btn.innerHTML = '<i class="fas fa-arrow-right-to-bracket"></i> Entrar';
-  }
-}
-
-function authBackToEmail(){
-  authClearErrors();
-  document.getElementById('login-step-code').style.display = 'none';
-  document.getElementById('login-step-email').style.display = '';
 }
 
 // Sessão persiste 30 dias no servidor — checa ao carregar a página pra não
-// pedir login de novo toda hora (antes disso não existia sessão real
-// nenhuma, só um mock de senha sem validação no backend).
+// pedir login de novo toda hora.
 async function authCheckSessao(){
+  const erro = new URLSearchParams(location.search).get('erro');
+  if(erro){
+    authShowError(SEATALK_ERROS[erro] || 'Não foi possível entrar — tenta de novo.');
+    history.replaceState(null, '', location.pathname);
+  }
   try {
     const r = await fetch('/api/auth?me=1');
     const j = await r.json();
-    if(j.ok && j.user) enterPortal(j.user);
+    if(j.ok && j.user){ enterPortal(j.user); return; }
   } catch(err){ /* sem sessão, fica na tela de login mesmo */ }
+  initSeatalkLogin();
 }
 document.addEventListener('DOMContentLoaded', authCheckSessao);
 

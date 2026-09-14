@@ -49,10 +49,13 @@ fs.readdirSync(API_DIR)
   .forEach(f => {
     const nome = f.replace(/\.js$/, '');
     const handler = require(path.join(API_DIR, f));
+    // /api/auth é quem CRIA a sessão (não pode exigir uma antes de existir).
+    // /api/ingest é chamado por script externo (Data Suite/Python), não por
+    // navegador — tem autenticação própria por token (INGEST_API_KEY), não
+    // por sessão de login (ver api/ingest.js).
+    const SEM_GATE_DE_SESSAO = new Set(['auth', 'ingest']);
     app.all(`/api/${nome}`, (req, res, next) => {
-      // /api/auth é o único endpoint acessível sem sessão — é ele quem
-      // CRIA a sessão. Todo o resto exige login (2 etapas já concluídas).
-      if (nome !== 'auth' && !req.session.user) {
+      if (!SEM_GATE_DE_SESSAO.has(nome) && !req.session.user) {
         res.status(401).json({ ok: false, erro: 'Não autenticado.' });
         return;
       }

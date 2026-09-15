@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-theme="light">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
@@ -7,7 +7,8 @@
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 26'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%231B92F5'/%3E%3Cstop offset='100%25' stop-color='%234AA9F8'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M12 1.2 L21.5 5 V12.2 C21.5 18 17.2 22.7 12 24.8 C6.8 22.7 2.5 18 2.5 12.2 V5 Z' fill='url(%23g)' stroke='%2320263e' stroke-width='1.1'/%3E%3Ctext x='12' y='16.2' text-anchor='middle' font-family='Inter, sans-serif' font-size='10.5' font-weight='900' fill='%23fff'%3EC%3C/text%3E%3C/svg%3E"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <!-- Open Sans: fonte pública confirmada no site oficial do SeaTalk. -->
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- Mapa de Dados (Markdown -> HTML nas descrições dos cards, pedido do
@@ -32,34 +33,45 @@
        grande, muito respiro) — direção oposta de propósito. O token
        --accent chamava --orange até aqui; renomeado porque agora carrega
        o azul #1B92F5 do MD. ── */
+    /* Cores verificadas no CSS público de seatalk.io (MD "Paleta de cores UI
+       — SeaTalk", 2026-09-15) — substituem os valores amostrados por
+       screenshot, que era a razão das cores não baterem. */
     :root {
-      --bg:            #F2F2F6;
+      --bg:            #F9FBFE;
       --surface:       #FFFFFF;
-      --surface-2:     #F8F8FA;
-      --surface-3:     #E8E8ED;
-      --border:        #E5E5EA;
-      --border-strong: #D9D9DF;
-      --text:          #30354C;
-      --text-sub:      #858895;
-      --text-muted:    #AEB2BE;
-      --heading:       #30354C;
-      --hover:         #F1F1F4;
+      --surface-2:     #F9FBFE;
+      --surface-3:     #EDF1F7;
+      --border:        rgba(0, 21, 54, .10);
+      --border-strong: rgba(56, 56, 56, .20);
+      --text:          #202325;
+      --text-default:  #383838;
+      --text-sub:      #4C5A71;
+      --text-muted:    rgba(32, 35, 37, .45);
+      --text-disabled: rgba(32, 35, 37, .30);
+      --heading:       #202325;
+      --hover:         rgba(58, 196, 251, .08);
 
-      /* Azul de ação — vivo e limpo, nunca escuro/roxo (MD seção 3). */
-      --accent:      #1B92F5;
-      --accent-l:    #4AA9F8;
-      --accent-ll:   #8FCBFB;
-      --accent-soft: #E8F4FF;
-      --cyan:        #3B82F6;
-      --cyan-l:      #60a5fa;
-      --green:       #22C55E;
-      --amber:       #F59E0B;
-      --red:         #F5222D;
+      /* Azul da marca — confirmado no site oficial. */
+      --accent:        #1B92F5;
+      --accent-hover:  #1890FF;
+      --accent-active: #178BEC;
+      --accent-l:      #3AC4FB;
+      --accent-dark:   #0E89F0;
+      --accent-ll:     #8FCBFB;
+      --accent-soft:   rgba(58, 196, 251, .12);
+      --grad-start:    #3AC4FB;
+      --grad-end:      #178BEC;
 
-      /* Rail escuro é assinatura da referência (MD seção 8). */
-      --rail:        #2E354C;
-      --rail-line:   rgba(255,255,255,.08);
-      --rail-text:   #C3C8D6;
+      --cyan:        #1B92F5;
+      --cyan-l:      #3AC4FB;
+      --green:       #22A06B;
+      --amber:       #F5A623;
+      --red:         #D64545;
+
+      /* Navy institucional — é o tom escuro da própria marca. */
+      --rail:        #001536;
+      --rail-line:   rgba(255,255,255,.10);
+      --rail-text:   #B6C1CF;
 
       --sidebar-w:   220px;
       --sidebar-col: 58px;
@@ -70,8 +82,34 @@
       --radius-xl:   9px;
       --radius-pill: 999px;
       --transition:  .15s ease;
-      --shadow:      0 1px 2px rgba(0,0,0,.04);
-      --shadow-lg:   0 2px 6px rgba(0,0,0,.06);
+      --shadow:      0 1px 2px rgba(50, 66, 85, .06);
+      --shadow-lg:   0 16px 30px rgba(50, 66, 85, .10);
+    }
+
+    /* ── MODO ESCURO ─────────────────────────────────────────────────────
+       Proposta do MD de paleta (seção 12) — navy-escuro, não preto puro,
+       em 3 níveis de superfície. O MD deixa claro que esses valores são
+       proposta de implementação, não cor oficial confirmada do app. ── */
+    [data-theme="dark"] {
+      --bg:            #101820;
+      --surface:       #172331;
+      --surface-2:     #202F3F;
+      --surface-3:     #2A3B4D;
+      --border:        rgba(255,255,255,.12);
+      --border-strong: rgba(255,255,255,.20);
+      --text:          #FFFFFF;
+      --text-default:  #E7E8E9;
+      --text-sub:      #B6C1CF;
+      --text-muted:    rgba(255,255,255,.45);
+      --text-disabled: rgba(255,255,255,.30);
+      --heading:       #FFFFFF;
+      --hover:         rgba(58, 196, 251, .16);
+      --accent-soft:   rgba(58, 196, 251, .18);
+      --rail:          #0A1420;
+      --rail-line:     rgba(255,255,255,.10);
+      --rail-text:     #B6C1CF;
+      --shadow:        0 1px 2px rgba(0,0,0,.4);
+      --shadow-lg:     0 16px 30px rgba(0,0,0,.5);
     }
 
 
@@ -104,7 +142,7 @@
     /* Fonte de UI de sistema (MD seção 6): no Windows cai em Segoe UI, que
        é a aproximação mais importante da referência. Sem tracking negativo
        — isso é coisa de fonte editorial, não de app nativo. */
-    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;
+    body{font-family:'Open Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;
       background:var(--bg);color:var(--text);
       font-size:13px;line-height:1.35;letter-spacing:normal;
       -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
@@ -724,7 +762,8 @@
     tbody tr:last-child td { border-bottom: none; }
     tbody tr { transition: background var(--transition); }
     tbody tr:hover { background: var(--surface-2); }
-    .empty-row td { text-align: center; color: var(--text-muted); padding: 32px; }
+    .empty-row td { text-align: center; color: var(--text-muted); padding: 0; }
+    .empty-row:hover { background: transparent; }
 
     /* ── BADGES ──────────────────────────────────────────────── */
     .badge {
@@ -3023,10 +3062,39 @@
     @media (max-width: 760px) {
       #main-content { padding: 20px; }
     }
-    /* O toggle claro/escuro não tem uma versão escura própria desse design
-       system novo ainda — fica oculto até existir uma (mesma decisão já
-       tomada na camada anterior). */
-    .theme-switch { display: none; }
+    /* Toggle claro/escuro reativado (pedido do Roberto em 2026-09-15) —
+       agora existe um modo escuro de verdade, ver [data-theme="dark"] no
+       topo do <style>. Ficou oculto desde a camada visual anterior porque
+       não havia paleta escura pronta. */
+    .theme-switch { display: flex; }
+
+    /* ── ESTADOS: skeleton e vazio ──────────────────────────────────────
+       Pedido do Roberto em 2026-09-15 (item 5) + checklist de estados dos
+       MDs. Classes utilitárias — cada tela liga onde faz sentido. ── */
+    @keyframes skeleton-pulse { 0%,100% { opacity: .55; } 50% { opacity: 1; } }
+    .skeleton {
+      background: var(--surface-3); border-radius: var(--radius-xs);
+      animation: skeleton-pulse 1.4s ease-in-out infinite;
+      display: block; height: 12px; width: 100%;
+    }
+    .skeleton + .skeleton { margin-top: 8px; }
+    .skeleton--title { height: 16px; width: 42%; }
+    .skeleton--line-sm { width: 68%; }
+    .skeleton--kpi { height: 26px; width: 55%; }
+    .skeleton--chart { height: 180px; border-radius: var(--radius-lg); }
+    .skeleton-rows { padding: 12px; }
+    @media (prefers-reduced-motion: reduce) {
+      .skeleton { animation: none; }
+    }
+    .state-empty {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 6px; padding: 40px 20px;
+      text-align: center; color: var(--text-muted);
+    }
+    .state-empty i { font-size: 20px; opacity: .5; margin-bottom: 2px; }
+    .state-empty-title { font-size: 13px; font-weight: 600; color: var(--text-sub); }
+    .state-empty-sub { font-size: 11.5px; max-width: 280px; line-height: 1.45; }
+    .state-empty-action { margin-top: 10px; }
 
     /* ── TV NIGHT MODE — template escuro dedicado pra apresentação/TV,
        independente do tema claro/escuro normal. Fica por último de
@@ -12080,7 +12148,25 @@ function renderTratativas(){
   setBadge('tratativas','ok','Em Construção');
 }
 
-function emptyRow(c){return`<tr class="empty-row"><td colspan="${c}">Nenhum registro encontrado.</td></tr>`;}
+/* Estado vazio das tabelas (pedido do Roberto em 2026-09-15, item 5) —
+   antes era só uma linha de texto solta; agora usa o componente
+   .state-empty, com ícone e uma segunda linha explicando o que fazer. */
+function emptyRow(c, msg){
+  return `<tr class="empty-row"><td colspan="${c}">
+    <div class="state-empty">
+      <i class="fas fa-inbox"></i>
+      <div class="state-empty-title">Nenhum registro encontrado</div>
+      <div class="state-empty-sub">${msg || 'Ajuste os filtros ou o período selecionado para ver dados aqui.'}</div>
+    </div>
+  </td></tr>`;
+}
+
+/* Skeleton de linhas pra tabela (mesmo item) — usar enquanto carrega, em
+   vez de deixar a tabela vazia. */
+function skeletonRows(cols, rows = 5){
+  const cel = `<td><span class="skeleton"></span></td>`;
+  return Array.from({ length: rows }, () => `<tr>${cel.repeat(cols)}</tr>`).join('');
+}
 
 /* ================================================================
    NOTIFICATIONS
@@ -19809,7 +19895,9 @@ setInterval(()=>{
    THEME TOGGLE — dark / light (cores normais do site)
 ================================================================ */
 function toggleTheme(){
-  const cur = document.documentElement.getAttribute('data-theme') || 'dark';
+  // Default 'light': o tema claro é o padrão do design system agora (o
+  // <html> já vem com data-theme="light" no HTML).
+  const cur = document.documentElement.getAttribute('data-theme') || 'light';
   const next = cur === 'dark' ? 'light' : 'dark';
   document.documentElement.setAttribute('data-theme', next);
   try { localStorage.setItem('jarvis-theme', next); } catch(e){}

@@ -11,8 +11,37 @@
  * corporativo acima) recebe o mesmo acesso completo. O controle de verdade
  * passou a ser só quem tem acesso ao repositório no GitHub (quem pode
  * mudar o código), não mais um "Demo" restrito dentro do próprio app.
+ *
+ * Work location (pedido do Roberto em 2026-09-15): a API da SeaTalk não
+ * devolve isso em nenhum endpoint disponível no app (confirmado ao vivo —
+ * o code2employee só traz employee_code/email/mobile/name/avatar, e não
+ * existe doc de leitura pro custom field "Work Location"). Em vez de
+ * depender da SeaTalk, guarda o de-para e-mail→work location numa tabela
+ * própria no Postgres, mantida à mão — sem regra de acesso associada ainda
+ * (só captura o dado por enquanto, pra usar depois).
  */
+const { pool } = require('../db');
+
 const DOMINIOS_PERMITIDOS = ['@shopee.com', '@shopeemobile-external.com'];
+
+async function garantirTabelaWorkLocations() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS work_locations (
+      email text PRIMARY KEY,
+      nome text,
+      work_location text NOT NULL,
+      atualizado_em timestamptz NOT NULL DEFAULT now()
+    );
+  `);
+}
+
+async function buscarWorkLocation(email) {
+  const e = String(email || '').trim().toLowerCase();
+  if (!e) return null;
+  await garantirTabelaWorkLocations();
+  const { rows } = await pool.query('SELECT work_location FROM work_locations WHERE email = $1', [e]);
+  return rows[0] ? rows[0].work_location : null;
+}
 
 function emailPermitido(email) {
   const e = String(email || '').trim().toLowerCase();
@@ -40,4 +69,4 @@ function usuarioDoEmail(email) {
   };
 }
 
-module.exports = { emailPermitido, nomeDoEmail, usuarioDoEmail, DOMINIOS_PERMITIDOS };
+module.exports = { emailPermitido, nomeDoEmail, usuarioDoEmail, buscarWorkLocation, DOMINIOS_PERMITIDOS };

@@ -23,7 +23,7 @@
  * 2026-09-15) — sem bloquear a resposta, ver notificarLoginSucesso().
  */
 const { pool } = require('../db');
-const { emailPermitido, usuarioDoEmail } = require('./_users');
+const { emailPermitido, usuarioDoEmail, buscarWorkLocation } = require('./_users');
 const { resolverEmployeeCodePorEmail, enviarMensagemDireta, trocarCodePorEmployee } = require('./_seatalk');
 
 const CODIGO_TTL_MIN = 5;
@@ -130,6 +130,7 @@ async function handleVerify(req, res) {
 
   await pool.query('DELETE FROM auth_codes WHERE email = $1', [email]);
   const user = usuarioDoEmail(email);
+  user.workLocation = await buscarWorkLocation(email).catch(() => null);
   req.session.user = user;
   res.status(200).json({ ok: true, user });
 
@@ -160,8 +161,9 @@ async function handleCallback(req, res) {
   if (employee.avatar) usuario.avatar = employee.avatar;
   // Work location (pedido do Roberto em 2026-09-15): confirmado ao vivo que
   // o code2employee da SeaTalk só devolve employee_code/email/mobile/name/
-  // avatar — não existe campo de work location nessa resposta, então não há
-  // o que capturar aqui.
+  // avatar — não existe campo de work location nessa resposta. Busca do
+  // de-para próprio (tabela work_locations) em vez de depender da SeaTalk.
+  usuario.workLocation = await buscarWorkLocation(email).catch(() => null);
 
   req.session.user = usuario;
   res.redirect('/');

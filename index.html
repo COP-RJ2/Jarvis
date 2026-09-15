@@ -61,7 +61,7 @@
       --rail-line:   rgba(255,255,255,.08);
       --rail-text:   #C3C8D6;
 
-      --sidebar-w:   198px;
+      --sidebar-w:   220px;
       --sidebar-col: 58px;
       --header-h:    52px;
       --radius-xs:   3px;
@@ -492,8 +492,9 @@
       text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px;
     }
     .kpi-strip-value {
-      font-size: 26px; font-weight: 700; color: var(--text);
+      font-size: 24px; font-weight: 600; color: var(--text);
       line-height: 1; margin-bottom: 6px;
+      font-variant-numeric: tabular-nums;
     }
     .kpi-strip-sub {
       font-size: 11px; font-weight: 500; color: var(--text-muted);
@@ -702,16 +703,22 @@
     }
     .table-search input::placeholder { color: var(--text-muted); }
 
-    table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    /* Densidade de app nativo (pedido do Roberto em 2026-09-15): linha de
+       ~32px em vez de ~38px, e dígito tabular pra número não "dançar" ao
+       atualizar. */
+    table {
+      width: 100%; border-collapse: collapse; font-size: 12.5px;
+      font-variant-numeric: tabular-nums;
+    }
     thead th {
-      text-align: left; padding: 9px 12px;
+      text-align: left; padding: 7px 12px;
       font-size: 10px; font-weight: 700; text-transform: uppercase;
       letter-spacing: .06em; color: var(--text-muted);
       border-bottom: 1px solid var(--border);
       background: var(--surface-2);
     }
     tbody td {
-      padding: 11px 12px; border-bottom: 1px solid var(--border);
+      padding: 7px 12px; border-bottom: 1px solid var(--border);
       color: var(--text); vertical-align: middle;
     }
     tbody tr:last-child td { border-bottom: none; }
@@ -2889,28 +2896,75 @@
        grande, tipografia grande, respiro largo). ── */
     body { background: var(--bg); }
 
-    /* Rail escuro — assinatura visual da referência (MD seção 8). */
-    #sidebar { background: var(--rail); border-right: 1px solid rgba(0,0,0,.18); }
-    .sidebar-logo { border-bottom: 1px solid var(--rail-line); padding: 14px 16px; }
-    .logo-text { color: #FFFFFF; font-size: 14px; font-weight: 600; letter-spacing: .06em; }
-    .nav-group-label { color: rgba(255,255,255,.34); letter-spacing: .1em; font-size: 9.5px; }
+    /* Rail escuro de 58px + coluna de navegação clara (pedido do Roberto em
+       2026-09-15). Na referência só o rail é escuro — antes a sidebar
+       inteira era azul escuro, o que a deixava pesada demais. */
+    #sidebar { flex-direction: row; background: var(--surface); border-right: none; }
+    .sidebar-rail {
+      width: 58px; flex: 0 0 58px;
+      background: var(--rail);
+      display: flex; flex-direction: column; align-items: center;
+      padding: 12px 0 10px; gap: 4px;
+    }
+    .sidebar-rail .logo-arc { width: 28px; height: 28px; }
+    .rail-spacer { flex: 1; }
+    .sidebar-rail .nav-item {
+      width: 34px; height: 34px; padding: 0; margin: 0;
+      justify-content: center; border-radius: var(--radius);
+      color: rgba(255,255,255,.60);
+    }
+    .sidebar-rail .nav-item:hover { background: rgba(255,255,255,.10); color: #FFFFFF; }
+    .sidebar-rail .nav-item::before { display: none; }
+    .sidebar-main {
+      flex: 1; min-width: 0;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .sidebar-main .logo-arc { display: none; }
+
+    .sidebar-logo { border-bottom: 1px solid var(--border); padding: 13px 14px; }
+    .logo-text { color: var(--text); font-size: 13.5px; font-weight: 600; letter-spacing: .06em; }
+    .nav-group-label { color: var(--text-muted); letter-spacing: .1em; font-size: 9.5px; }
     .nav-item {
-      border-radius: var(--radius); color: var(--rail-text);
-      font-size: 12.5px; padding: 7px 10px;
+      border-radius: var(--radius); color: var(--text-sub);
+      font-size: 12px; padding: 7px 8px;
       transition: background var(--transition), color var(--transition);
     }
-    .nav-item:hover { background: rgba(255,255,255,.07); color: #FFFFFF; }
+    /* Ellipsis em vez de corte no meio da letra — a coluna é estreita de
+       propósito e alguns rótulos são longos ("Tratativas e Aud."). */
+    .nav-label {
+      font-size: 12px; min-width: 0;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .nav-subitem { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .nav-icon { font-size: 13px; width: 17px; }
+    .nav-item:hover { background: var(--hover); color: var(--accent); }
     /* Ativo = diferença de superfície + barra azul fina como indicador; o MD
        proíbe azul preenchendo a linha inteira (seção 25). */
-    .nav-item.active { background: rgba(255,255,255,.10); color: #FFFFFF; font-weight: 500; }
+    .nav-item.active { background: var(--accent-soft); color: var(--accent); font-weight: 500; }
     .nav-item.active::before { background: var(--accent); }
-    .nav-item.locked, .nav-item[disabled] { color: rgba(255,255,255,.28); }
-    .nav-subitem { color: rgba(255,255,255,.60); font-size: 12px; }
-    .nav-subitem:hover { background: rgba(255,255,255,.07); color: #FFFFFF; }
-    .nav-subitem.active { background: rgba(255,255,255,.10); color: #FFFFFF; font-weight: 500; }
-    .sidebar-footer { border-top-color: var(--rail-line); }
-    #sidebar .theme-switch { color: var(--rail-text); }
-    #sidebar .theme-switch:hover { background: rgba(255,255,255,.07); color: #FFFFFF; }
+    .nav-item-locked { color: var(--text-muted); }
+    .nav-subitem { color: var(--text-sub); font-size: 12px; }
+    .nav-subitem:hover { background: var(--hover); color: var(--text); }
+    .nav-subitem.active { background: var(--accent-soft); color: var(--accent); font-weight: 500; }
+    .sidebar-footer { border-top: 1px solid var(--border); }
+    .sidebar-main .theme-switch { color: var(--text-sub); }
+    .sidebar-main .theme-switch:hover { background: var(--hover); color: var(--accent); }
+
+    /* Colapsada: o rail sai e a coluna de navegação assume os 58px em modo
+       só-ícone (escura), preservando a navegação — que é o ponto do estado
+       colapsado. */
+    #sidebar.collapsed .sidebar-rail { display: none; }
+    #sidebar.collapsed .sidebar-main { background: var(--rail); border-right-color: rgba(0,0,0,.18); }
+    #sidebar.collapsed .sidebar-main .logo-arc { display: block; width: 26px; height: 26px; }
+    #sidebar.collapsed .sidebar-logo { justify-content: center; border-bottom-color: var(--rail-line); }
+    #sidebar.collapsed .nav-group-label { color: rgba(255,255,255,.30); }
+    #sidebar.collapsed .nav-item { color: var(--rail-text); }
+    #sidebar.collapsed .nav-item:hover { background: rgba(255,255,255,.08); color: #FFFFFF; }
+    #sidebar.collapsed .nav-item.active { background: rgba(255,255,255,.10); color: #FFFFFF; }
+    #sidebar.collapsed .sidebar-footer { border-top-color: var(--rail-line); }
+    #sidebar.collapsed .theme-switch { color: var(--rail-text); }
     #sidebar.collapsed .nav-item::after {
       background: var(--rail); color: #FFFFFF;
       border: 1px solid rgba(255,255,255,.12); box-shadow: var(--shadow-lg);
@@ -4304,6 +4358,21 @@
 
 <!-- SIDEBAR -->
 <nav id="sidebar" aria-label="Menu principal">
+  <!-- Rail escuro de 58px (pedido do Roberto em 2026-09-15): no SeaTalk só
+       essa faixa é escura, o resto da navegação é claro. Guarda a marca e
+       as ações globais; a navegação em si fica na coluna clara ao lado. -->
+  <div class="sidebar-rail">
+    <img class="logo-arc" src="assets/jarvis-arc.png" alt="JARVIS" />
+    <div class="rail-spacer"></div>
+    <div class="nav-item nav-item-icon-only" id="sidebar-night-toggle" title="Modo noturno (template escuro pra TV)" onclick="toggleTvNight()">
+      <i class="fas fa-sun nav-icon" id="sidebar-night-icon"></i>
+    </div>
+    <div class="nav-item nav-item-icon-only" data-section="switch" data-label="Switch" title="Switch" onclick="navigateTo('switch',this)">
+      <i class="fas fa-sliders nav-icon"></i>
+    </div>
+  </div>
+
+  <div class="sidebar-main">
   <div class="sidebar-logo">
     <img class="logo-arc" src="assets/jarvis-arc.png" alt="" />
     <span class="logo-text">JARVIS</span>
@@ -4461,17 +4530,12 @@
       <div class="nav-item" data-section="configuracoes" data-label="Configurações" onclick="navigateTo('configuracoes',this)" style="flex:1">
         <i class="fas fa-gear nav-icon"></i><span class="nav-label">Configurações</span>
       </div>
-      <div class="nav-item nav-item-icon-only" id="sidebar-night-toggle" title="Modo noturno (template escuro pra TV)" onclick="toggleTvNight()">
-        <i class="fas fa-sun nav-icon" id="sidebar-night-icon"></i>
-      </div>
-      <div class="nav-item nav-item-icon-only" data-section="switch" data-label="Switch" title="Switch" onclick="navigateTo('switch',this)">
-        <i class="fas fa-sliders nav-icon"></i>
-      </div>
     </div>
     <div class="theme-switch" onclick="toggleTheme()" title="Alternar tema claro/escuro">
       <i class="fas fa-circle-half-stroke nav-icon"></i>
       <span class="theme-switch-label">Tema Claro</span>
     </div>
+  </div>
   </div>
 </nav>
 
@@ -7291,6 +7355,18 @@ function initLoginPhotoRotation(){
 }
 document.addEventListener('DOMContentLoaded', initLoginPhotoRotation);
 
+// Rótulo completo no hover — a coluna de navegação é estreita de propósito
+// (rail escuro de 58px + 162px de nav), então os rótulos mais longos usam
+// ellipsis; o title garante que dá pra ler o nome inteiro.
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.nav-item[data-label]').forEach(el => {
+    if(!el.title) el.title = el.dataset.label;
+  });
+  document.querySelectorAll('.nav-subitem').forEach(el => {
+    if(!el.title) el.title = el.textContent.trim();
+  });
+});
+
 function enterPortal(user){
   document.getElementById('login-screen').classList.add('hidden');
   applyUser(user);
@@ -9855,6 +9931,38 @@ function outboundRenderChart(data){
 /* ================================================================
    CHARTS
 ================================================================ */
+/* Defaults globais (pedido do Roberto em 2026-09-15): grid mais fraco,
+   sem borda no canvas, tooltip discreto, fonte de UI. Fica num lugar só —
+   cada gráfico continua definindo seus próprios dados/cores. */
+if(typeof Chart !== 'undefined'){
+  const css = getComputedStyle(document.documentElement);
+  const tok = n => css.getPropertyValue(n).trim();
+  Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif';
+  Chart.defaults.font.size = 11;
+  Chart.defaults.color = tok('--text-muted') || '#AEB2BE';
+  Chart.defaults.borderColor = tok('--border') || '#E5E5EA';
+  Chart.defaults.elements.point.radius = 0;
+  Chart.defaults.elements.point.hoverRadius = 4;
+  Chart.defaults.elements.line.borderWidth = 2;
+  Chart.defaults.elements.line.tension = .25;
+  Chart.defaults.elements.bar.borderWidth = 0;
+  Chart.defaults.elements.arc.borderWidth = 0;
+  Chart.defaults.plugins.legend.labels.boxWidth = 8;
+  Chart.defaults.plugins.legend.labels.boxHeight = 8;
+  Chart.defaults.plugins.legend.labels.usePointStyle = true;
+  Chart.defaults.plugins.legend.labels.padding = 14;
+  Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(48,53,76,.94)';
+  Chart.defaults.plugins.tooltip.titleFont = { size: 11, weight: '600' };
+  Chart.defaults.plugins.tooltip.bodyFont = { size: 11 };
+  Chart.defaults.plugins.tooltip.padding = 8;
+  Chart.defaults.plugins.tooltip.cornerRadius = 5;
+  Chart.defaults.plugins.tooltip.displayColors = true;
+  Chart.defaults.plugins.tooltip.boxWidth = 7;
+  Chart.defaults.plugins.tooltip.boxHeight = 7;
+  Chart.defaults.plugins.tooltip.boxPadding = 4;
+  Chart.defaults.animation.duration = 260;
+}
+
 const chartInstances={};
 function destroyCharts(){
   // Full destroy — used on logout/reset

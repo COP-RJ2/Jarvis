@@ -4,15 +4,15 @@
  * fixa de e-mails com senha — agora é "qualquer e-mail do domínio
  * corporativo", então não faz sentido manter ~70 linhas hardcoded só pra
  * nome/perfil. Nome vem do próprio e-mail (mesmo padrão "nome.sobrenome" já
- * usado em toda a base), e perfil é Administrador só pra quem está na lista
- * abaixo — todo o resto entra como Demo, igual já era o padrão de fato
- * antes (a lista antiga tinha 1 "admin" e todo o resto era Demo).
+ * usado em toda a base).
+ *
+ * Papel (pedido do Roberto em 2026-09-15): não existe mais distinção de
+ * papel por login — todo mundo que entra (já filtrado por domínio
+ * corporativo acima) recebe o mesmo acesso completo. O controle de verdade
+ * passou a ser só quem tem acesso ao repositório no GitHub (quem pode
+ * mudar o código), não mais um "Demo" restrito dentro do próprio app.
  */
 const DOMINIOS_PERMITIDOS = ['@shopee.com', '@shopeemobile-external.com'];
-
-const ADMIN_EMAILS = new Set([
-  'roberto.barboza@shopee.com',
-]);
 
 function emailPermitido(email) {
   const e = String(email || '').trim().toLowerCase();
@@ -36,7 +36,7 @@ function usuarioDoEmail(email) {
     email: e,
     name: nome,
     initials: iniciais,
-    role: ADMIN_EMAILS.has(e) ? 'Administrador' : 'Demo',
+    role: 'Administrador',
   };
 }
 

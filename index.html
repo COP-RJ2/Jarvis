@@ -20,80 +20,51 @@
   </script>
   <script defer src="/_vercel/insights/script.js"></script>
   <style>
-    /* ── TOKENS ─────────────────────────────────────────────── */
+    /* ── TOKENS — design system premium estilo Apple (pedido do Roberto em
+       2026-09-15, MD "Design System — Template Web Premium"): branco/cinza
+       claro como base, laranja só como destaque pontual, sombras suaves,
+       cantos mais generosos. Substitui a base escura original — o visual
+       "Codex" que existia antes (rgba translúcido, sombra laranja, Söhne)
+       foi uma tentativa anterior nessa mesma direção; esse token system
+       novo é a versão definitiva, seguindo o MD à risca. ── */
     :root {
-      --bg:          #1a1d2e;
-      --surface:     #232537;
-      --surface-2:   #2a2d42;
-      --surface-3:   #313452;
-      --border:      rgba(255,255,255,.06);
-      --text:        #e8eaf0;
-      --text-sub:    #9497b0;
-      --text-muted:  #5c5f7a;
+      --bg:          #F5F6F8;
+      --surface:     #FFFFFF;
+      --surface-2:   #F5F6F8;
+      --surface-3:   #E5E7EB;
+      --border:      #E5E7EB;
+      --text:        #111111;
+      --text-sub:    #3A3F4B;
+      --text-muted:  #6B7280;
+      --heading:     #123B66;
 
       --orange:      #ee4d2d;
       --orange-l:    #ff6633;
       --orange-ll:   #ff8c5a;
-      --cyan:        #06b6d4;
-      --cyan-l:      #22d3ee;
-      --green:       #10b981;
-      --amber:       #f59e0b;
-      --red:         #ef4444;
+      --cyan:        #3B82F6;
+      --cyan-l:      #60a5fa;
+      --green:       #22C55E;
+      --amber:       #F59E0B;
+      --red:         #EF4444;
 
       --sidebar-w:   230px;
       --sidebar-col: 60px;
       --header-h:    64px;
-      --radius:      10px;
-      --radius-lg:   14px;
-      --radius-xl:   20px;
+      --radius:      12px;
+      --radius-lg:   18px;
+      --radius-xl:   24px;
+      --radius-pill: 999px;
       --transition:  .2s cubic-bezier(.4,0,.2,1);
-      --shadow:      0 2px 8px rgba(0,0,0,.35);
-      --shadow-lg:   0 8px 32px rgba(0,0,0,.45);
+      --shadow:      0 1px 2px rgba(17,17,17,.04), 0 2px 8px rgba(17,17,17,.05);
+      --shadow-lg:   0 4px 12px rgba(17,17,17,.05), 0 16px 40px rgba(17,17,17,.09);
     }
 
 
-    /* ── LIGHT THEME ────────────────────────────────────────── */
-    [data-theme="light"] {
-      --bg:          #f0f2f8;
-      --surface:     #ffffff;
-      --surface-2:   #f5f6fa;
-      --surface-3:   #e8eaf0;
-      --border:      rgba(0,0,0,.08);
-      --text:        #1a1d2e;
-      --text-sub:    #4a4d6a;
-      --text-muted:  #8890b0;
-      --shadow:      0 2px 8px rgba(0,0,0,.08);
-      --shadow-lg:   0 8px 32px rgba(0,0,0,.12);
-    }
-
-    /* Sidebar light theme */
-    [data-theme="light"] #sidebar          { background: #f8f9fc; border-right: 1px solid rgba(0,0,0,.08); }
-    [data-theme="light"] .sidebar-logo     { border-bottom-color: rgba(0,0,0,.08); }
-    [data-theme="light"] .sidebar-footer   { border-top-color: rgba(0,0,0,.08); }
-    [data-theme="light"] .nav-group-label  { color: #b0b8d0; }
-    [data-theme="light"] .nav-item         { color: #6b7299; }
-    [data-theme="light"] .nav-item:hover   { background: rgba(238,77,45,.06); color: var(--orange); }
-    [data-theme="light"] .nav-item.active  {
-      background: linear-gradient(90deg, rgba(238,77,45,.12), rgba(238,77,45,.04));
-      color: var(--orange);
-    }
-    [data-theme="light"] .nav-item.active::before { background: var(--orange); }
-    [data-theme="light"] .logo-text        {
-      background: linear-gradient(90deg, #1a1d2e 40%, var(--orange));
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    }
-    [data-theme="light"] .logo-mark        { box-shadow: 0 4px 12px rgba(238,77,45,.3); }
-    [data-theme="light"] .theme-switch     { color: #6b7299; }
-    [data-theme="light"] .theme-switch:hover { background: rgba(238,77,45,.06); color: var(--orange); }
-    [data-theme="light"] #sidebar.collapsed .nav-item::after { background: #fff; color: #1a1d2e; border: 1px solid rgba(0,0,0,.08); }
-
-    /* Header light */
-    [data-theme="light"] #header { background: #fff; border-bottom-color: rgba(0,0,0,.08); }
-
-    /* Other light adjustments */
-    [data-theme="light"] .digital-clock { text-shadow: 0 0 12px rgba(238,77,45,.4); }
-    [data-theme="light"] input.filter-select::-webkit-calendar-picker-indicator { filter: none; opacity:.6; }
-    [data-theme="light"] .clst-table-wrap { box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+    /* Sidebar/header claros por padrão — regras de verdade ficam lá embaixo,
+       no bloco "PREMIUM VISUAL LAYER" (perto do fim do <style>), de
+       propósito: precisam vir DEPOIS das definições base de .nav-item/
+       .logo-text/etc. (ver #sidebar mais abaixo) pra ganhar da cascata —
+       mesmo padrão que o antigo bloco "Codex" já usava. */
 
     /* Theme switch item */
     .theme-switch {
@@ -115,8 +86,10 @@
 
     /* ── RESET ───────────────────────────────────────────────── */
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);
+    body{font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif;
+      background:var(--bg);color:var(--text);letter-spacing:-.011em;
       min-height:100vh;display:flex;overflow:hidden}
+    h1,h2,h3,h4,h5,h6{font-weight:600;letter-spacing:-.02em;color:var(--heading)}
     a{text-decoration:none;color:inherit}
     ul,ol{list-style:none}
     button{cursor:pointer;border:none;background:none;font-family:inherit;color:inherit}
@@ -1143,7 +1116,7 @@
       width: 7px; height: 7px; border-radius: 50%; background: #34d399;
       box-shadow: 0 0 0 3px rgba(52,211,153,.25); display: inline-block;
     }
-    .login-photo-bottom h2 { font-size: 24px; font-weight: 800; letter-spacing: -.3px; margin-bottom: 8px; line-height: 1.2; }
+    .login-photo-bottom h2 { font-size: 24px; font-weight: 800; letter-spacing: -.3px; margin-bottom: 8px; line-height: 1.2; color: #fff; }
     .login-photo-bottom p { font-size: 13px; color: rgba(255,255,255,.8); max-width: 340px; line-height: 1.5; }
     .login-photo-bottom p.login-photo-apoio { font-size: 11px; color: rgba(255,255,255,.55); margin-top: 10px; }
     .login-divider { display: flex; align-items: center; gap: 12px; margin: 22px 0; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; }
@@ -1193,9 +1166,9 @@
     }
     .login-error.show { display: flex; }
     .login-btn {
-      width: 100%; padding: 11px;
+      width: 100%; padding: 12px;
       background: linear-gradient(135deg, var(--orange), #ff6633);
-      color: #fff; border-radius: var(--radius);
+      color: #fff; border-radius: var(--radius-pill);
       font-size: 14px; font-weight: 700;
       cursor: pointer; border: none; font-family: inherit;
       box-shadow: 0 4px 16px rgba(238,77,45,.35);
@@ -2906,146 +2879,98 @@
       border-radius: 4px;
     }
 
-    /* ── CODEX-INSPIRED VISUAL LAYER ─────────────────────────────────────── */
-    /* Keeps the portal functionality intact while giving it a calmer, focused
-       light workspace aesthetic. */
-    :root {
-      --bg: #fff4ef;
-      --surface: rgba(255, 255, 255, .82);
-      --surface-2: rgba(255, 239, 232, .88);
-      --surface-3: rgba(255, 213, 196, .94);
-      --border: rgba(136, 58, 35, .13);
-      --text: #20263e;
-      --text-sub: #56617e;
-      --text-muted: #75809b;
-      --orange: #ee4d2d;
-      --orange-l: #d83c20;
-      --orange-ll: #a92b18;
-      --cyan: #5d8dff;
-      --cyan-l: #91b5ff;
-      --green: #65d1a5;
-      --amber: #f0b86c;
-      --red: #e6533b;
-      --radius: 8px;
-      --radius-lg: 12px;
-      --radius-xl: 16px;
-      --shadow: 0 12px 30px rgba(151, 66, 35, .13);
-      --shadow-lg: 0 30px 75px rgba(151, 66, 35, .20);
-      /* Versões opacas de --surface/--surface-2, só pra elementos sticky (ex:
-         coluna fixa da tabela de Clusterização) — --surface* normal é
-         translúcido de propósito (visual "glass"), mas isso deixa o conteúdo
-         que passa por baixo aparecendo através da coluna fixa ao rolar. */
-      --surface-solid: #fdf3ee;
-      --surface-2-solid: #fdece2;
-    }
+    /* ── PREMIUM VISUAL LAYER (estilo Apple) ─────────────────────────────
+       Pedido do Roberto em 2026-09-15 (MD "Design System — Template Web
+       Premium"): minimalista, tipografia grande, muito espaço em branco,
+       laranja só como destaque pontual, sombras suaves, sem excesso de
+       bordas/cor. Substitui a camada "Codex" anterior (vidro translúcido,
+       sombra laranja, fonte Söhne) por essa, que segue o MD à risca — fica
+       por último de propósito (mesma razão de antes: precisa vir DEPOIS
+       das definições base de .nav-item/.card/etc. pra ganhar da cascata,
+       sem precisar reescrever cada componente do zero). ── */
+    body { background: var(--bg); }
 
-    body {
-      font-family: 'S\00f6 hne', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background:
-        radial-gradient(circle at 17% 10%, rgba(255, 138, 92, .62), transparent 27%),
-        radial-gradient(circle at 77% 12%, rgba(255, 172, 122, .65), transparent 31%),
-        radial-gradient(circle at 67% 82%, rgba(255, 196, 150, .62), transparent 38%),
-        #fff4ef;
-      letter-spacing: -.012em;
-    }
-    body::before {
-      content: ''; position: fixed; inset: 10px; z-index: -1; pointer-events: none;
-      border-radius: 9px;
-      background: linear-gradient(135deg, rgba(255, 255, 255, .82), transparent 42%);
-    }
-    /* Apply the Codex-style type stack consistently to every textual element.
-       Font Awesome icon classes are deliberately excluded so icons keep working. */
-    body,
-    body :not(.fa):not(.fas):not(.far):not(.fal):not(.fab):not([class^="fa-"]):not([class*=" fa-"]) {
-      font-family: 'S\00f6 hne', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
-    }
-
-    #sidebar {
-      background: rgba(255, 250, 247, .82);
-      border-right: 1px solid rgba(136, 58, 35, .10);
-      backdrop-filter: blur(20px);
-    }
-    .sidebar-logo { border-bottom: 1px solid rgba(136, 58, 35, .10); }
+    #sidebar { background: #FBFBFC; border-right: 1px solid var(--border); }
+    .sidebar-logo { border-bottom: 1px solid var(--border); }
     .logo-mark {
-      background: linear-gradient(135deg, #ff7a45, #ee4d2d);
-      box-shadow: 0 8px 22px rgba(238, 77, 45, .30);
+      background: linear-gradient(135deg, #ff7a45, var(--orange));
+      box-shadow: 0 4px 14px rgba(238, 77, 45, .25);
     }
-    /* Solid ink avoids the white-to-blue gradient disappearing into the header. */
     .logo-text {
-      background: none !important;
-      -webkit-background-clip: initial !important;
-      -webkit-text-fill-color: #14284d !important;
-      color: #14284d !important;
-      font-weight: 900 !important;
-      letter-spacing: .12em !important;
-      text-shadow: none !important;
+      background: none; -webkit-background-clip: initial; -webkit-text-fill-color: initial;
+      color: var(--heading); font-weight: 800; letter-spacing: .04em;
     }
-    .nav-group-label { color: #6d7792; letter-spacing: .12em; }
-    .nav-item { border-radius: 10px; color: #4f5d7d; }
-    .nav-item:hover { background: rgba(238, 77, 45, .08); color: #7d2717; }
-    .nav-item.active {
-      background: linear-gradient(90deg, rgba(238, 77, 45, .17), rgba(238, 77, 45, .03));
-      color: #b7341d;
-    }
-    .nav-item.active::before { background: #75adff; box-shadow: 0 0 12px #75adff; }
-    .sidebar-footer { border-top-color: rgba(136, 58, 35, .10); }
+    .nav-group-label { color: #9CA3AF; letter-spacing: .08em; }
+    .nav-item { border-radius: var(--radius); color: #4B5563; transition: background var(--transition), color var(--transition), transform var(--transition); }
+    .nav-item:hover { background: rgba(238, 77, 45, .06); color: var(--orange); }
+    .nav-item.active { background: rgba(238, 77, 45, .08); color: var(--orange); font-weight: 600; }
+    .nav-item.active::before { background: var(--orange); }
+    .sidebar-footer { border-top-color: var(--border); }
 
     #header {
-      background: rgba(255, 255, 255, .70);
-      border-bottom-color: rgba(136, 58, 35, .10);
+      background: rgba(255, 255, 255, .82);
+      border-bottom-color: var(--border);
       backdrop-filter: blur(20px);
     }
-    .header-toggle, .action-btn, .theme-switch { border-radius: 10px; }
-    .header-toggle:hover, .action-btn:hover, .theme-switch:hover { background: rgba(238, 77, 45, .08); color:#7d2717; }
-    /* Compact time card: calmer and easier to scan than the old neon display. */
+    .header-toggle, .action-btn, .theme-switch { border-radius: var(--radius); }
+    .header-toggle:hover, .action-btn:hover, .theme-switch:hover { background: rgba(238, 77, 45, .06); color: var(--orange); }
+    /* Relógio: número tabular limpo, sem glow — discreto por design. */
     .digital-clock-wrap {
       flex-direction: row; align-items: center; gap: 9px;
-      padding: 7px 11px; border: 1px solid rgba(136,58,35,.13);
-      border-radius: 12px; background: rgba(255,255,255,.62);
-      box-shadow: 0 5px 14px rgba(151,66,35,.07);
+      padding: 7px 12px; border: 1px solid var(--border);
+      border-radius: var(--radius); background: var(--surface-2);
+      box-shadow: none;
     }
     .digital-clock {
-      color: #882916; font-size: 15px; font-weight: 750; line-height: 1;
+      color: var(--heading); font-size: 15px; font-weight: 650; line-height: 1;
       letter-spacing: -.02em; text-shadow: none; font-variant-numeric: tabular-nums;
     }
     .digital-date {
-      padding-left: 9px; border-left: 1px solid rgba(136,58,35,.16);
-      color: #6d5b56; font-size: 11px; font-weight: 550; letter-spacing: 0;
-      text-shadow: none; opacity: 1;
-      font-family: 'S\00f6 hne Mono', 'SFMono-Regular', Consolas, monospace !important;
-      font-size: 10px; font-weight: 600; letter-spacing: .035em;
+      padding-left: 9px; border-left: 1px solid var(--border);
+      color: var(--text-muted); font-size: 11px; font-weight: 550;
+      text-shadow: none; opacity: 1; letter-spacing: .02em;
     }
     .digital-shift {
-      padding: 3px 6px; border-radius: 6px; background: #fff0e9;
-      color: #bb3b20; font-size: 9px; font-weight: 800; letter-spacing: .06em;
+      padding: 3px 7px; border-radius: 6px; background: rgba(238,77,45,.08);
+      color: var(--orange); font-size: 9px; font-weight: 800; letter-spacing: .06em;
       text-shadow: none; opacity: 1;
     }
     .filter-select {
-      background: rgba(255,255,255,.72); border:1px solid rgba(136, 58, 35, .14);
-      color: var(--text-sub); border-radius: 9px;
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text-sub); border-radius: var(--radius);
     }
-    .user-avatar { background: linear-gradient(135deg, #ff8052, #ee4d2d); box-shadow: 0 5px 16px rgba(238, 77, 45, .26); }
+    .user-avatar { background: linear-gradient(135deg, #ff8052, var(--orange)); box-shadow: 0 4px 12px rgba(238, 77, 45, .22); }
 
-    #main-content { padding: 30px; }
-    .section-header h1, .section-header h2 { letter-spacing: -.04em; }
-    .card, .chart-card, .table-card, .kpi-strip, .clst-table-wrap {
-      background: rgba(255, 255, 255, .76) !important;
-      border: 1px solid rgba(136, 58, 35, .11) !important;
-      border-radius: var(--radius-lg) !important;
+    /* Respiro generoso (MD seção 6) — adaptado pra densidade de um
+       dashboard operacional (o MD sugere 120-180px de section spacing,
+       pensado pra landing page; aqui isso esvaziaria a tela de dado real). */
+    #main-content { padding: 40px 44px; }
+    .section-header h1, .section-header h2 { letter-spacing: -.03em; color: var(--heading); }
+    .card, .chart-card, .table-card, .kpi-strip, .clst-table-wrap, .data-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
       box-shadow: var(--shadow);
-      backdrop-filter: blur(18px);
+      transition: box-shadow var(--transition), transform var(--transition);
     }
     .kpi-strip-item { background: transparent; }
-    .kpi-strip-item:hover { background: rgba(238,77,45,.055); }
-    .dl-btn { border-radius: 10px; }
-    .dl-btn-pdf, .login-btn { background: linear-gradient(135deg, #ff784c, #ee4d2d) !important; box-shadow: 0 8px 20px rgba(238, 77, 45, .28); }
-    .dl-btn-csv { background: rgba(255,255,255,.7) !important; border:1px solid rgba(136,58,35,.14); }
+    .kpi-strip-item:hover { background: rgba(238,77,45,.04); }
+    .dl-btn { border-radius: var(--radius-pill); }
+    .dl-btn-pdf { background: linear-gradient(135deg, #ff784c, var(--orange)) !important; color: #fff !important; border-color: transparent !important; box-shadow: 0 4px 14px rgba(238, 77, 45, .22); }
+    .dl-btn-pdf i { color: #fff; }
+    .dl-btn-csv { background: var(--surface) !important; border: 1px solid var(--border); }
+
+    /* Microinterações discretas (MD seção 15) — leve elevação no hover,
+       nunca efeito chamativo. */
+    .nav-item:hover, .kpi-strip-item:hover { transform: translateY(-1px); }
+    .card:hover, .data-card:hover { box-shadow: var(--shadow-lg); }
 
     @media (max-width: 760px) {
-      #main-content { padding: 16px; }
+      #main-content { padding: 20px; }
     }
-    /* O toggle claro/escuro usa uma paleta antiga que não combina com esta
-       camada visual — ocultado até o sistema de temas ser refeito pra ela. */
+    /* O toggle claro/escuro não tem uma versão escura própria desse design
+       system novo ainda — fica oculto até existir uma (mesma decisão já
+       tomada na camada anterior). */
     .theme-switch { display: none; }
 
     /* ── TV NIGHT MODE — template escuro dedicado pra apresentação/TV,

@@ -4672,9 +4672,11 @@
       <div class="nav-item" data-section="configuracoes" data-label="Configurações" onclick="navigateTo('configuracoes',this)" style="flex:1">
         <i class="fas fa-gear nav-icon"></i><span class="nav-label">Configurações</span>
       </div>
-      <div class="nav-item nav-item-icon-only" id="sidebar-night-toggle" title="Modo noturno (template escuro pra TV)" onclick="toggleTvNight()">
-        <i class="fas fa-sun nav-icon" id="sidebar-night-icon"></i>
-      </div>
+      <!-- Ícone de modo noturno TV removido daqui (pedido do Roberto em
+           2026-09-15) — ao lado do seletor "Tema Claro/Escuro" logo abaixo,
+           parecia um segundo seletor de tema duplicado. O Modo Noturno TV
+           continua acessível pelo TV Mode Config (toggleTvNight() em
+           index.html:15218), só não fica mais no rodapé da sidebar. -->
       <div class="nav-item nav-item-icon-only" data-section="switch" data-label="Switch" title="Switch" onclick="navigateTo('switch',this)">
         <i class="fas fa-sliders nav-icon"></i>
       </div>
@@ -7358,10 +7360,16 @@ function applyUser(user){
     // essa permissão, cai pras iniciais como sempre.
     if(user.avatar){
       av.innerHTML = '';
+      av.style.overflow = 'hidden';
       const img = document.createElement('img');
       img.src = user.avatar;
       img.alt = user.name;
-      img.style.cssText = 'width:100%;height:100%;border-radius:50%;object-fit:cover;';
+      // O avatar que o SeaTalk devolve já vem com uma moldura quadrada
+      // arredondada azul "assada" nos pixels da própria foto (não é uma
+      // borda CSS que dê pra tirar) — escala pra dentro (zoom) pra recortar
+      // essa moldura fora do círculo, deixando só a foto (pedido do Roberto
+      // em 2026-09-15).
+      img.style.cssText = 'width:150%;height:150%;object-fit:cover;position:relative;left:-25%;top:-25%;';
       img.onerror = () => { av.textContent = user.initials; };
       av.appendChild(img);
     } else {

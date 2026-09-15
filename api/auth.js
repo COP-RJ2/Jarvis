@@ -143,6 +143,11 @@ async function handleCallback(req, res) {
   let employee;
   try {
     employee = await trocarCodePorEmployee(code);
+    // Debug temporário (pedido do Roberto em 2026-09-15) — loga o employee
+    // cru que o SeaTalk devolve no login, pra achar o nome real do campo de
+    // work location direto nos logs do Railway (sem precisar abrir URL/
+    // consultar sessão). Remover depois de confirmado.
+    console.log('[auth][debug work_location] employee cru:', JSON.stringify(employee));
   } catch (err) {
     console.error('[auth] falha ao trocar code por employee:', err.message);
     res.redirect('/?erro=seatalk_falhou');

@@ -61,7 +61,7 @@
       --rail-line:   rgba(255,255,255,.08);
       --rail-text:   #C3C8D6;
 
-      --sidebar-w:   230px;
+      --sidebar-w:   198px;
       --sidebar-col: 58px;
       --header-h:    52px;
       --radius-xs:   3px;
@@ -135,15 +135,18 @@
     .sidebar-logo {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 9px;
       padding: 20px 16px;
       min-height: var(--header-h);
     }
-    /* Ícone do logo removido (pedido do Roberto em 2026-09-15) — só o
-       texto "JARVIS" fica, em cor sólida (ver bloco PREMIUM VISUAL LAYER
-       mais abaixo pra cor final). */
+    /* Logo do reator arc (pedido do Roberto em 2026-09-15) — extraído do
+       ícone do app com fundo transparente, ver assets/jarvis-arc.png. */
+    .logo-arc {
+      width: 24px; height: 24px; flex-shrink: 0;
+      object-fit: contain; display: block;
+    }
     .logo-text {
-      font-size: 16px; font-weight: 800; letter-spacing: .04em;
+      font-size: 14px; font-weight: 600; letter-spacing: .04em;
       white-space: nowrap; overflow: hidden;
       opacity: 1; transition: opacity var(--transition);
     }
@@ -4302,6 +4305,7 @@
 <!-- SIDEBAR -->
 <nav id="sidebar" aria-label="Menu principal">
   <div class="sidebar-logo">
+    <img class="logo-arc" src="assets/jarvis-arc.png" alt="" />
     <span class="logo-text">JARVIS</span>
   </div>
 
@@ -7107,13 +7111,6 @@ function greeting(){
   return 'Boa noite';
 }
 
-const ROLE_BADGE_COLOR = {
-  'Administrador': '#1B92F5',
-  'Analista':      '#06b6d4',
-  'Lider':         '#10b981',
-  'Demo':          '#a78bfa',
-};
-
 function applyUser(user){
   currentUser = user;
   const el = document.getElementById('greet-line');
@@ -7136,8 +7133,9 @@ function applyUser(user){
     }
   }
   const un = document.getElementById('um-name'), ue = document.getElementById('um-email');
-  const badgeColor = ROLE_BADGE_COLOR[user.role] || '#9497b0';
-  if(un) un.innerHTML = `${user.name} <span style="font-size:9px;font-weight:800;padding:1px 7px;border-radius:20px;background:${badgeColor}22;color:${badgeColor};margin-left:6px">${user.role}</span>`;
+  // Selo de papel removido (pedido do Roberto em 2026-09-15) — não existe
+  // mais distinção de papel por login, então o selo só poluía o menu.
+  if(un) un.textContent = user.name;
   if(ue) ue.textContent = user.email;
 }
 

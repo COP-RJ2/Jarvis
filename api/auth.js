@@ -158,6 +158,14 @@ async function handleCallback(req, res) {
   const usuario = usuarioDoEmail(email);
   if (employee.name) usuario.name = employee.name;
   if (employee.avatar) usuario.avatar = employee.avatar;
+  // Work location (pedido do Roberto em 2026-09-15) — o code2employee da
+  // SeaTalk devolve outros campos além dos documentados (employee_code/
+  // avatar/name/email/mobile); captura qualquer variante de nome que venha
+  // pra descobrir o formato real. workLocationRaw fica só pra debug via
+  // GET /api/auth?me=1 — remover depois de confirmado o campo certo.
+  usuario.workLocation = employee.work_location || employee.workLocation
+    || employee.office_location || employee.location || null;
+  usuario.workLocationRaw = employee;
 
   req.session.user = usuario;
   res.redirect('/');

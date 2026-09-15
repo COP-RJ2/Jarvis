@@ -33,23 +33,29 @@
        grande, muito respiro) — direção oposta de propósito. O token
        --accent chamava --orange até aqui; renomeado porque agora carrega
        o azul #1B92F5 do MD. ── */
-    /* Cores verificadas no CSS público de seatalk.io (MD "Paleta de cores UI
-       — SeaTalk", 2026-09-15) — substituem os valores amostrados por
-       screenshot, que era a razão das cores não baterem. */
+    /* Paleta do APLICATIVO SeaTalk (MD "Paleta de UI do SeaTalk App",
+       2026-09-15). O MD é explícito: a paleta do app NÃO é a do site
+       público — e os valores do app batem com o MD de reverse engineering
+       feito sobre screenshots. Por isso as superfícies/texto voltam pros
+       tons do app (#F2F2F6 / #F8F8FA / #2E354C) e não os do site de
+       marketing (#F9FBFE / #202325), que foi o passe anterior.
+       Exceção: a cor de ação fica no #1B92F5 confirmado no site oficial
+       (confiança alta) em vez do #4890CC amostrado do app (o próprio MD
+       marca as cores de destaque como confiança média). */
     :root {
-      --bg:            #F9FBFE;
+      --bg:            #F2F2F6;
       --surface:       #FFFFFF;
-      --surface-2:     #F9FBFE;
-      --surface-3:     #EDF1F7;
-      --border:        rgba(0, 21, 54, .10);
-      --border-strong: rgba(56, 56, 56, .20);
-      --text:          #202325;
-      --text-default:  #383838;
-      --text-sub:      #4C5A71;
-      --text-muted:    rgba(32, 35, 37, .45);
-      --text-disabled: rgba(32, 35, 37, .30);
-      --heading:       #202325;
-      --hover:         rgba(58, 196, 251, .08);
+      --surface-2:     #F8F8FA;
+      --surface-3:     #E9E9F4;
+      --border:        #D1D3D6;
+      --border-strong: rgba(46, 53, 76, .22);
+      --text:          #2E354C;
+      --text-default:  #555A58;
+      --text-sub:      #555A58;
+      --text-muted:    #95A7AE;
+      --text-disabled: rgba(46, 53, 76, .30);
+      --heading:       #2E354C;
+      --hover:         #E9E9F4;
 
       /* Azul da marca — confirmado no site oficial. */
       --accent:        #1B92F5;
@@ -62,16 +68,23 @@
       --grad-start:    #3AC4FB;
       --grad-end:      #178BEC;
 
-      --cyan:        #1B92F5;
+      --cyan:        #4890CC;
       --cyan-l:      #3AC4FB;
       --green:       #22A06B;
       --amber:       #F5A623;
       --red:         #D64545;
 
-      /* Navy institucional — é o tom escuro da própria marca. */
-      --rail:        #001536;
+      /* Rail escuro — navy do app (#2E354C é o mesmo tom do texto
+         principal, que é a cor escura da identidade). */
+      --rail:        #2E354C;
       --rail-line:   rgba(255,255,255,.10);
-      --rail-text:   #B6C1CF;
+      --rail-text:   #C3C8D6;
+      --rail-active: rgba(72, 144, 204, .22);
+      --rail-mark:   #4890CC;
+
+      /* Gradiente do Spark — usado SÓ na barra lateral do modo escuro. O
+         MD é enfático: não aplicar no modo escuro inteiro (seção 9). */
+      --spark-gradient: linear-gradient(180deg, #0A0B19 0%, #1D1A2B 42%, #221F32 72%, #222336 100%);
 
       --sidebar-w:   220px;
       --sidebar-col: 58px;
@@ -87,27 +100,28 @@
     }
 
     /* ── MODO ESCURO ─────────────────────────────────────────────────────
-       Proposta do MD de paleta (seção 12) — navy-escuro, não preto puro,
-       em 3 níveis de superfície. O MD deixa claro que esses valores são
-       proposta de implementação, não cor oficial confirmada do app. ── */
+       Níveis de superfície do app (MD "Paleta de UI do SeaTalk App",
+       seção 3): quase-preto neutro, NÃO navy — o navy/violeta entra só no
+       gradiente do rail, emprestado do Spark. ── */
     [data-theme="dark"] {
-      --bg:            #101820;
-      --surface:       #172331;
-      --surface-2:     #202F3F;
-      --surface-3:     #2A3B4D;
-      --border:        rgba(255,255,255,.12);
+      --bg:            #121314;
+      --surface:       #1E1F20;
+      --surface-2:     #252627;
+      --surface-3:     #2C2D2E;
+      --border:        #2C2D2E;
       --border-strong: rgba(255,255,255,.20);
-      --text:          #FFFFFF;
-      --text-default:  #E7E8E9;
-      --text-sub:      #B6C1CF;
-      --text-muted:    rgba(255,255,255,.45);
-      --text-disabled: rgba(255,255,255,.30);
-      --heading:       #FFFFFF;
-      --hover:         rgba(58, 196, 251, .16);
-      --accent-soft:   rgba(58, 196, 251, .18);
-      --rail:          #0A1420;
-      --rail-line:     rgba(255,255,255,.10);
-      --rail-text:     #B6C1CF;
+      --text:          #DFD5CC;
+      --text-default:  #96A4A8;
+      --text-sub:      #96A4A8;
+      --text-muted:    #758087;
+      --text-disabled: rgba(223,213,204,.30);
+      --heading:       #DFD5CC;
+      --hover:         #2C2D2E;
+      --accent-soft:   rgba(72, 144, 204, .22);
+      --surface-elevated: #272829;
+      --rail:          #0A0B19;
+      --rail-line:     rgba(255,255,255,.08);
+      --rail-text:     rgba(255,255,255,.72);
       --shadow:        0 1px 2px rgba(0,0,0,.4);
       --shadow-lg:     0 16px 30px rgba(0,0,0,.5);
     }
@@ -1120,6 +1134,90 @@
     }
     @media(max-width:480px){
       .kpi-strip { grid-template-columns: 1fr; }
+    }
+
+    /* ── NAVEGAÇÃO INFERIOR (MOBILE) ─────────────────────────────────────
+       Fase C do refino visual (pedido do Roberto em 2026-09-15), seguindo
+       o MD "SeaTalk Mobile": as funções mais usadas ficam na barra
+       inferior; "Menu" abre a navegação completa (o drawer que já existe,
+       pra não duplicar lógica de navegação). Só aparece em ≤767px. ── */
+    .mobile-nav { display: none; }
+    .mobile-nav-spacer { display: none; }
+    @media (max-width: 767px) {
+      .mobile-nav {
+        display: flex; position: fixed; z-index: 195;
+        left: 0; right: 0; bottom: 0;
+        background: var(--surface);
+        border-top: 1px solid var(--border);
+        /* Respeita a área segura do aparelho (home indicator do iPhone). */
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+        box-shadow: 0 -2px 10px rgba(50, 66, 85, .06);
+      }
+      .mnav-item {
+        flex: 1; min-width: 0;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: 3px; padding: 8px 2px 7px;
+        /* Área de toque confortável (MD mobile, seção 21). */
+        min-height: 52px;
+        color: var(--text-muted); background: none; border: none;
+        font-family: inherit; font-size: 9.5px; font-weight: 600;
+        letter-spacing: .01em; cursor: pointer;
+        transition: color var(--transition), background var(--transition);
+        position: relative;
+      }
+      .mnav-item i { font-size: 16px; }
+      .mnav-item span {
+        max-width: 100%; overflow: hidden;
+        text-overflow: ellipsis; white-space: nowrap;
+      }
+      .mnav-item:active { background: var(--hover); }
+      /* Ativo não depende só de cor: ganha peso, ícone cheio e um traço
+         no topo (MD mobile, seção 3). */
+      .mnav-item.is-active { color: var(--accent); font-weight: 700; }
+      .mnav-item.is-active::before {
+        content: ''; position: absolute; top: 0; left: 50%;
+        transform: translateX(-50%);
+        width: 22px; height: 2px; border-radius: 999px;
+        background: var(--accent);
+      }
+      .mnav-badge {
+        position: absolute; top: 5px; left: 50%; margin-left: 4px;
+        min-width: 15px; height: 15px; padding: 0 4px;
+        border-radius: 999px; background: var(--red); color: #fff;
+        font-size: 9px; font-weight: 700; line-height: 15px; text-align: center;
+      }
+      /* Espaço pro conteúdo não ficar escondido embaixo da barra. */
+      #main-content { padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
+    }
+
+    /* ── FOLHA INFERIOR (bottom sheet) ───────────────────────────────────
+       Componente do MD mobile (seção 15) — ações contextuais em tela
+       pequena. Base pronta pra usar nas próximas etapas da Fase C. ── */
+    .sheet-backdrop {
+      position: fixed; inset: 0; z-index: 240;
+      background: rgba(0,0,0,.45);
+      opacity: 0; pointer-events: none;
+      transition: opacity var(--transition);
+    }
+    .sheet-backdrop.open { opacity: 1; pointer-events: auto; }
+    .bottom-sheet {
+      position: fixed; z-index: 241; left: 0; right: 0; bottom: 0;
+      background: var(--surface); color: var(--text);
+      border-radius: 16px 16px 0 0;
+      box-shadow: 0 -8px 24px rgba(50, 66, 85, .12);
+      padding: 8px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+      transform: translateY(100%);
+      transition: transform .22s cubic-bezier(.2,.8,.2,1);
+      max-height: 78vh; overflow-y: auto;
+    }
+    .bottom-sheet.open { transform: translateY(0); }
+    .sheet-handle {
+      width: 36px; height: 4px; border-radius: 999px;
+      background: var(--border-strong); margin: 4px auto 12px;
+    }
+    .sheet-title { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+    @media (prefers-reduced-motion: reduce) {
+      .bottom-sheet { transition: none; }
     }
     /* Header transbordava no celular (~74px fora da tela em 375px) — os
        botões de notificação/sync/avatar ficavam inacessíveis, sem scroll
@@ -2945,6 +3043,10 @@
       display: flex; flex-direction: column; align-items: center;
       padding: 12px 0 10px; gap: 4px;
     }
+    /* Gradiente do Spark concentrado só no rail (MD do app, seções 4.3/5.4
+       — usar como identidade da navegação, nunca na tela toda). */
+    [data-theme="dark"] .sidebar-rail { background: var(--spark-gradient); }
+    [data-theme="dark"] #sidebar.collapsed .sidebar-main { background: var(--spark-gradient); }
     .sidebar-rail .logo-arc { width: 28px; height: 28px; }
     .rail-spacer { flex: 1; }
     .sidebar-rail .nav-item {
@@ -3060,7 +3162,11 @@
     .card:hover, .data-card:hover, .chart-card:hover { box-shadow: var(--shadow); transform: none; }
 
     @media (max-width: 760px) {
-      #main-content { padding: 20px; }
+      /* Padding inferior maior reserva espaço pra navegação inferior do
+         mobile — usa longhand de propósito: o shorthand `padding` aqui
+         zerava o padding-bottom definido no bloco da .mobile-nav, que vem
+         antes na cascata. */
+      #main-content { padding: 20px 20px calc(64px + env(safe-area-inset-bottom, 0px)); }
     }
     /* Toggle claro/escuro reativado (pedido do Roberto em 2026-09-15) —
        agora existe um modo escuro de verdade, ver [data-theme="dark"] no
@@ -4608,6 +4714,27 @@
 </nav>
 
 <div id="sidebar-overlay" onclick="closeMobileSidebar()"></div>
+
+<!-- Navegação inferior (mobile) — só aparece em ≤767px, ver CSS.
+     Os 4 atalhos apontam pras seções mais usadas no dia a dia; "Menu"
+     abre a navegação completa (drawer que já existe). -->
+<nav class="mobile-nav" id="mobile-nav" aria-label="Navegação principal">
+  <button class="mnav-item" type="button" data-mnav="gestao" onclick="mobileNavGo('gestao')">
+    <i class="fas fa-gauge-high"></i><span>Overview</span>
+  </button>
+  <button class="mnav-item" type="button" data-mnav="backlog" onclick="mobileNavGo('backlog')">
+    <i class="fas fa-layer-group"></i><span>Backlog</span>
+  </button>
+  <button class="mnav-item" type="button" data-mnav="asm" onclick="mobileNavGo('asm')">
+    <i class="fas fa-feather-pointed"></i><span>ASM</span>
+  </button>
+  <button class="mnav-item" type="button" data-mnav="conveyor" onclick="mobileNavGo('conveyor')">
+    <i class="fas fa-briefcase"></i><span>Conveyor</span>
+  </button>
+  <button class="mnav-item" type="button" onclick="openMobileSidebar()">
+    <i class="fas fa-bars"></i><span>Menu</span>
+  </button>
+</nav>
 
 <!-- APP -->
 <div id="app">
@@ -7704,6 +7831,27 @@ function closeMobileSidebar(){
   document.getElementById('sidebar').classList.remove('mobile-open');
   document.getElementById('sidebar-overlay').classList.remove('visible');
 }
+function openMobileSidebar(){
+  document.getElementById('sidebar').classList.add('mobile-open');
+  document.getElementById('sidebar-overlay').classList.add('visible');
+}
+
+/* Navegação inferior do mobile (Fase C, pedido do Roberto em 2026-09-15).
+   Delega o clique pro próprio item do menu lateral em vez de reimplementar
+   navegação — assim continua valendo a mesma lógica de seção ativa,
+   subpágina e controle de acesso. */
+function mobileNavGo(section){
+  closeMobileSidebar();
+  const item = document.querySelector(`#sidebar .nav-item[data-section="${section}"]`);
+  if(item) item.click();
+  else navigateTo(section);
+  mobileNavSync();
+}
+function mobileNavSync(){
+  document.querySelectorAll('.mnav-item[data-mnav]').forEach(btn => {
+    btn.classList.toggle('is-active', btn.dataset.mnav === currentSection);
+  });
+}
 
 /* ================================================================
    NAVIGATION
@@ -7775,6 +7923,7 @@ function navigateTo(id, el){
   const mudouSecao = currentSection!==id;
   currentSection=id;
   if(window.innerWidth<=768) closeMobileSidebar();
+  mobileNavSync();
   if(!mudouSecao) return;
   destroyCharts();
   renderSection(id);

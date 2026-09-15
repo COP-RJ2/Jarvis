@@ -7,8 +7,8 @@
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 26'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%231B92F5'/%3E%3Cstop offset='100%25' stop-color='%234AA9F8'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M12 1.2 L21.5 5 V12.2 C21.5 18 17.2 22.7 12 24.8 C6.8 22.7 2.5 18 2.5 12.2 V5 Z' fill='url(%23g)' stroke='%2320263e' stroke-width='1.1'/%3E%3Ctext x='12' y='16.2' text-anchor='middle' font-family='Inter, sans-serif' font-size='10.5' font-weight='900' fill='%23fff'%3EC%3C/text%3E%3C/svg%3E"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <!-- Open Sans: fonte pública confirmada no site oficial do SeaTalk. -->
-  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <!-- Roboto (pedido do Roberto em 2026-09-15, spec de fontes do app do SeaTalk). -->
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- Mapa de Dados (Markdown -> HTML nas descrições dos cards, pedido do
@@ -156,7 +156,7 @@
     /* Fonte de UI de sistema (MD seção 6): no Windows cai em Segoe UI, que
        é a aproximação mais importante da referência. Sem tracking negativo
        — isso é coisa de fonte editorial, não de app nativo. */
-    body{font-family:'Open Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;
+    body{font-family:'Roboto',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;
       background:var(--bg);color:var(--text);
       font-size:13px;line-height:1.35;letter-spacing:normal;
       -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
@@ -184,18 +184,22 @@
     }
     #sidebar.collapsed { width: var(--sidebar-col); }
 
+    /* Alça de redimensionar (pedido do Roberto em 2026-09-15) — só desktop,
+       some junto com o resto da sidebar em telas de celular/tablet. */
+    .sidebar-resize-handle {
+      position: absolute; top: 0; right: -3px; bottom: 0; width: 6px;
+      cursor: col-resize; z-index: 201; background: transparent;
+    }
+    .sidebar-resize-handle:hover, .sidebar-resize-handle.dragging { background: rgba(27,146,245,.35); }
+    #sidebar.collapsed .sidebar-resize-handle { display: none; }
+    @media (max-width: 767px) { .sidebar-resize-handle { display: none; } }
+
     .sidebar-logo {
       display: flex;
       align-items: center;
       gap: 9px;
       padding: 20px 16px;
       min-height: var(--header-h);
-    }
-    /* Logo do reator arc (pedido do Roberto em 2026-09-15) — extraído do
-       ícone do app com fundo transparente, ver assets/jarvis-arc.png. */
-    .logo-arc {
-      width: 24px; height: 24px; flex-shrink: 0;
-      object-fit: contain; display: block;
     }
     .logo-text {
       font-size: 14px; font-weight: 600; letter-spacing: .04em;
@@ -539,9 +543,16 @@
       margin: -4px 0 12px;
     }
     .pulso-card-filter:empty { display: none; }
+    /* Reserva 2 linhas de altura pra label, use 1 ou 2 (pedido do Roberto em
+       2026-09-15) — sem isso, um nome de card mais longo empurrava o
+       número pra baixo e desalinhava a fileira toda com os cards vizinhos
+       de nome curto. */
     .kpi-strip-label {
       font-size: 11px; font-weight: 500; color: var(--text-muted);
       text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px;
+      line-height: 1.3; min-height: calc(1.3em * 2);
+      display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+      overflow: hidden;
     }
     .kpi-strip-value {
       font-size: 24px; font-weight: 600; color: var(--text);
@@ -736,7 +747,7 @@
     .ovw-accordion[open] summary .ovw-chevron { transform: rotate(180deg); }
     .ovw-accordion-body { padding: 0 16px 16px; }
     .ovw-accordion .kpi-strip-item { padding: 11px 12px; }
-    .ovw-accordion .kpi-strip-label { font-size: 9px; margin-bottom: 3px; }
+    .ovw-accordion .kpi-strip-label { font-size: 9px; margin-bottom: 3px; min-height: calc(1.3em * 2); }
     .ovw-accordion .kpi-strip-value { font-size: 16px; margin-bottom: 2px; }
     .ovw-accordion .kpi-strip-sub { font-size: 9px; margin-top: -2px; margin-bottom: 3px; }
     .ovw-accordion .kpi-strip-icon { font-size: 14px; top: 9px; right: 9px; }
@@ -1671,7 +1682,7 @@
        (12 cards) — versão mais compacta só aqui, pra caber mais por linha. */
     #pulso-kpis-clusterizacao .kpi-strip { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
     #pulso-kpis-clusterizacao .kpi-strip-item { padding: 11px 12px; }
-    #pulso-kpis-clusterizacao .kpi-strip-label { font-size: 9px; margin-bottom: 3px; }
+    #pulso-kpis-clusterizacao .kpi-strip-label { font-size: 9px; margin-bottom: 3px; min-height: calc(1.3em * 2); }
     #pulso-kpis-clusterizacao .kpi-strip-value { font-size: 16px; margin-bottom: 2px; }
     #pulso-kpis-clusterizacao .kpi-strip-sub { font-size: 9px; margin-top: -2px; margin-bottom: 3px; }
     #pulso-kpis-clusterizacao .kpi-strip-delta { font-size: 9px; }
@@ -3033,42 +3044,20 @@
        grande, tipografia grande, respiro largo). ── */
     body { background: var(--bg); }
 
-    /* Rail escuro de 58px + coluna de navegação clara (pedido do Roberto em
-       2026-09-15). Na referência só o rail é escuro — antes a sidebar
-       inteira era azul escuro, o que a deixava pesada demais. */
-    #sidebar { flex-direction: row; background: var(--surface); border-right: none; }
-    .sidebar-rail {
-      width: 58px; flex: 0 0 58px;
-      background: var(--rail);
-      display: flex; flex-direction: column; align-items: center;
-      padding: 12px 0 10px; gap: 4px;
-    }
-    /* Gradiente do Spark concentrado só no rail (MD do app, seções 4.3/5.4
-       — usar como identidade da navegação, nunca na tela toda). */
-    [data-theme="dark"] .sidebar-rail { background: var(--spark-gradient); }
-    [data-theme="dark"] #sidebar.collapsed .sidebar-main { background: var(--spark-gradient); }
-    .sidebar-rail .logo-arc { width: 28px; height: 28px; }
-    .rail-spacer { flex: 1; }
-    .sidebar-rail .nav-item {
-      width: 34px; height: 34px; padding: 0; margin: 0;
-      justify-content: center; border-radius: var(--radius);
-      color: rgba(255,255,255,.60);
-    }
-    .sidebar-rail .nav-item:hover { background: rgba(255,255,255,.10); color: #FFFFFF; }
-    .sidebar-rail .nav-item::before { display: none; }
-    .sidebar-main {
-      flex: 1; min-width: 0;
-      background: var(--surface);
-      border-right: 1px solid var(--border);
-      display: flex; flex-direction: column; overflow: hidden;
-    }
-    .sidebar-main .logo-arc { display: none; }
+    /* Coluna única, escura (pedido do Roberto em 2026-09-15) — o rail
+       separado de antes virava duas cores diferentes (clara + escura) com
+       botão de config/tema duplicado. Volta a ser uma peça só, sempre na
+       cor do rail, do topo ao rodapé — expandida ou colapsada. */
+    #sidebar { background: var(--rail); border-right: 1px solid rgba(0,0,0,.18); }
+    [data-theme="dark"] #sidebar { background: var(--spark-gradient); }
 
-    .sidebar-logo { border-bottom: 1px solid var(--border); padding: 13px 14px; }
-    .logo-text { color: var(--text); font-size: 13.5px; font-weight: 600; letter-spacing: .06em; }
-    .nav-group-label { color: var(--text-muted); letter-spacing: .1em; font-size: 9.5px; }
+    .sidebar-logo { border-bottom: 1px solid var(--rail-line); padding: 13px 16px; }
+    .logo-text { color: #FFFFFF; font-size: 14px; font-weight: 600; letter-spacing: .06em; }
+    #sidebar.collapsed .sidebar-logo { justify-content: center; padding: 13px 0; }
+
+    .nav-group-label { color: rgba(255,255,255,.32); letter-spacing: .1em; font-size: 9.5px; }
     .nav-item {
-      border-radius: var(--radius); color: var(--text-sub);
+      border-radius: var(--radius); color: var(--rail-text);
       font-size: 12px; padding: 7px 8px;
       transition: background var(--transition), color var(--transition);
     }
@@ -3080,33 +3069,22 @@
     }
     .nav-subitem { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .nav-icon { font-size: 13px; width: 17px; }
-    .nav-item:hover { background: var(--hover); color: var(--accent); }
+    .nav-item:hover { background: rgba(255,255,255,.08); color: #FFFFFF; }
     /* Ativo = diferença de superfície + barra azul fina como indicador; o MD
        proíbe azul preenchendo a linha inteira (seção 25). */
-    .nav-item.active { background: var(--accent-soft); color: var(--accent); font-weight: 500; }
+    .nav-item.active { background: rgba(255,255,255,.10); color: #FFFFFF; font-weight: 500; }
     .nav-item.active::before { background: var(--accent); }
-    .nav-item-locked { color: var(--text-muted); }
-    .nav-subitem { color: var(--text-sub); font-size: 12px; }
-    .nav-subitem:hover { background: var(--hover); color: var(--text); }
-    .nav-subitem.active { background: var(--accent-soft); color: var(--accent); font-weight: 500; }
-    .sidebar-footer { border-top: 1px solid var(--border); }
-    .sidebar-main .theme-switch { color: var(--text-sub); }
-    .sidebar-main .theme-switch:hover { background: var(--hover); color: var(--accent); }
-
-    /* Colapsada: o rail sai e a coluna de navegação assume os 58px em modo
-       só-ícone (escura), preservando a navegação — que é o ponto do estado
-       colapsado. */
-    #sidebar.collapsed .sidebar-rail { display: none; }
-    #sidebar.collapsed .sidebar-main { background: var(--rail); border-right-color: rgba(0,0,0,.18); }
-    #sidebar.collapsed .sidebar-main .logo-arc { display: block; width: 26px; height: 26px; }
-    #sidebar.collapsed .sidebar-logo { justify-content: center; border-bottom-color: var(--rail-line); }
-    #sidebar.collapsed .nav-group-label { color: rgba(255,255,255,.30); }
-    #sidebar.collapsed .nav-item { color: var(--rail-text); }
-    #sidebar.collapsed .nav-item:hover { background: rgba(255,255,255,.08); color: #FFFFFF; }
-    #sidebar.collapsed .nav-item.active { background: rgba(255,255,255,.10); color: #FFFFFF; }
-    #sidebar.collapsed .sidebar-footer { border-top-color: var(--rail-line); }
-    #sidebar.collapsed .theme-switch { color: var(--rail-text); }
-    #sidebar.collapsed .nav-item::after {
+    .nav-item-locked { color: rgba(255,255,255,.28); }
+    .nav-subitem { color: var(--rail-text); font-size: 12px; }
+    .nav-subitem:hover { background: rgba(255,255,255,.08); color: #FFFFFF; }
+    .nav-subitem.active { background: rgba(255,255,255,.10); color: #FFFFFF; font-weight: 500; }
+    .sidebar-footer { border-top: 1px solid var(--rail-line); }
+    .theme-switch { color: var(--rail-text); }
+    .theme-switch:hover { background: rgba(255,255,255,.08); color: #FFFFFF; }
+    /* Botões só-ícone do rodapé (modo noturno, Switch) — quadrados,
+       centralizados, sem o rótulo de texto ao lado. */
+    .nav-item-icon-only { flex: 0 0 auto; width: 32px; padding: 7px 0; justify-content: center; }
+    .nav-item::after {
       background: var(--rail); color: #FFFFFF;
       border: 1px solid rgba(255,255,255,.12); box-shadow: var(--shadow-lg);
     }
@@ -4532,23 +4510,13 @@
 
 <!-- SIDEBAR -->
 <nav id="sidebar" aria-label="Menu principal">
-  <!-- Rail escuro de 58px (pedido do Roberto em 2026-09-15): no SeaTalk só
-       essa faixa é escura, o resto da navegação é claro. Guarda a marca e
-       as ações globais; a navegação em si fica na coluna clara ao lado. -->
-  <div class="sidebar-rail">
-    <img class="logo-arc" src="assets/jarvis-arc.png" alt="JARVIS" />
-    <div class="rail-spacer"></div>
-    <div class="nav-item nav-item-icon-only" id="sidebar-night-toggle" title="Modo noturno (template escuro pra TV)" onclick="toggleTvNight()">
-      <i class="fas fa-sun nav-icon" id="sidebar-night-icon"></i>
-    </div>
-    <div class="nav-item nav-item-icon-only" data-section="switch" data-label="Switch" title="Switch" onclick="navigateTo('switch',this)">
-      <i class="fas fa-sliders nav-icon"></i>
-    </div>
-  </div>
-
-  <div class="sidebar-main">
+  <!-- Coluna única, escura (pedido do Roberto em 2026-09-15) — o rail
+       separado de antes virou duas cores meio confusas (a parte clara
+       tinha botão de config/tema repetido dos que já ficam no rodapé).
+       Volta a ser uma coisa só, na cor do rail. Ícone do reator arc
+       removido de propósito — era só uma referência de teste, não ficou
+       bom como logo de verdade. -->
   <div class="sidebar-logo">
-    <img class="logo-arc" src="assets/jarvis-arc.png" alt="" />
     <span class="logo-text">JARVIS</span>
   </div>
 
@@ -4704,13 +4672,22 @@
       <div class="nav-item" data-section="configuracoes" data-label="Configurações" onclick="navigateTo('configuracoes',this)" style="flex:1">
         <i class="fas fa-gear nav-icon"></i><span class="nav-label">Configurações</span>
       </div>
+      <div class="nav-item nav-item-icon-only" id="sidebar-night-toggle" title="Modo noturno (template escuro pra TV)" onclick="toggleTvNight()">
+        <i class="fas fa-sun nav-icon" id="sidebar-night-icon"></i>
+      </div>
+      <div class="nav-item nav-item-icon-only" data-section="switch" data-label="Switch" title="Switch" onclick="navigateTo('switch',this)">
+        <i class="fas fa-sliders nav-icon"></i>
+      </div>
     </div>
     <div class="theme-switch" onclick="toggleTheme()" title="Alternar tema claro/escuro">
       <i class="fas fa-circle-half-stroke nav-icon"></i>
       <span class="theme-switch-label">Tema Claro</span>
     </div>
   </div>
-  </div>
+  <!-- Alça de redimensionar (pedido do Roberto em 2026-09-15, só web —
+       ver sidebarResizeInit()). Arrasta a borda direita pra ajustar a
+       largura; salva no localStorage. -->
+  <div class="sidebar-resize-handle" id="sidebar-resize-handle" title="Arraste para ajustar a largura"></div>
 </nav>
 
 <div id="sidebar-overlay" onclick="closeMobileSidebar()"></div>
@@ -7831,6 +7808,47 @@ function closeMobileSidebar(){
   document.getElementById('sidebar').classList.remove('mobile-open');
   document.getElementById('sidebar-overlay').classList.remove('visible');
 }
+
+/* Largura da sidebar ajustável arrastando a borda (pedido do Roberto em
+   2026-09-15) — só desktop, a alça já some via CSS no mobile. Salva no
+   localStorage pra persistir entre sessões; min/max evita esmagar a
+   navegação ou tomar a tela toda. */
+const SIDEBAR_W_MIN = 180, SIDEBAR_W_MAX = 320;
+function sidebarResizeInit(){
+  const handle = document.getElementById('sidebar-resize-handle');
+  if(!handle) return;
+
+  try {
+    const saved = parseInt(localStorage.getItem('jarvis-sidebar-w'), 10);
+    if(saved >= SIDEBAR_W_MIN && saved <= SIDEBAR_W_MAX){
+      document.documentElement.style.setProperty('--sidebar-w', saved + 'px');
+    }
+  } catch(e){}
+
+  let dragging = false, startX = 0, startW = 0;
+  handle.addEventListener('mousedown', e => {
+    if(window.innerWidth <= 767) return;
+    dragging = true; startX = e.clientX;
+    startW = document.getElementById('sidebar').getBoundingClientRect().width;
+    handle.classList.add('dragging');
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  });
+  window.addEventListener('mousemove', e => {
+    if(!dragging) return;
+    const w = Math.min(SIDEBAR_W_MAX, Math.max(SIDEBAR_W_MIN, startW + (e.clientX - startX)));
+    document.documentElement.style.setProperty('--sidebar-w', w + 'px');
+  });
+  window.addEventListener('mouseup', () => {
+    if(!dragging) return;
+    dragging = false;
+    handle.classList.remove('dragging');
+    document.body.style.userSelect = '';
+    const w = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-w'), 10);
+    try { localStorage.setItem('jarvis-sidebar-w', w); } catch(e){}
+  });
+}
+document.addEventListener('DOMContentLoaded', sidebarResizeInit);
 function openMobileSidebar(){
   document.getElementById('sidebar').classList.add('mobile-open');
   document.getElementById('sidebar-overlay').classList.add('visible');
@@ -7889,7 +7907,7 @@ const sectionMeta = {
 /* ── Itens de nav que só abrem um link externo em nova aba, sem navegação
    interna (não têm data-section/currentSection nem seção correspondente). ── */
 const LINK_ABSENTEISMO = 'https://presencaops-production.up.railway.app/';
-const LINK_TRATATIVAS_AUD = 'https://spx-reverse.vercel.app/';
+const LINK_TRATATIVAS_AUD = 'https://spxreverse.vercel.app/';
 const LINK_COP_ACADEMY = 'https://cop-academy.vercel.app';
 
 function pulsoNavExternal(url){

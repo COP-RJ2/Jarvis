@@ -17,6 +17,10 @@
  *
  *   POST /api/auth?logout=1  -> encerra sessão
  *   GET  /api/auth?me=1      -> sessão atual (ou null)
+ *
+ * Nos dois métodos, depois da sessão aberta o bot manda uma DM de
+ * confirmação "Login bem-sucedido às HH:MM" (pedido do Roberto em
+ * 2026-09-15) — sem bloquear a resposta, ver notificarLoginSucesso().
  */
 const { pool } = require('../db');
 const { emailPermitido, usuarioDoEmail } = require('./_users');
@@ -39,6 +43,19 @@ async function garantirTabelaCodigos() {
 
 function gerarCodigo() {
   return String(Math.floor(100000 + Math.random() * 900000)); // 6 dígitos
+}
+
+function horaAgora() {
+  return new Date().toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' });
+}
+
+// Confirmação de login por DM (pedido do Roberto em 2026-09-15) — dispara
+// depois da sessão já aberta, sem bloquear a resposta/redirect: se o
+// SeaTalk falhar aqui, o login em si já aconteceu, só não chega o aviso.
+function notificarLoginSucesso(employeeCode) {
+  if (!employeeCode) return;
+  enviarMensagemDireta(employeeCode, `JARVIS — Login bem-sucedido às ${horaAgora()}.`)
+    .catch(err => console.error('[auth] falha ao notificar login via SeaTalk:', err.message));
 }
 
 async function handleRequest(req, res) {
@@ -115,6 +132,8 @@ async function handleVerify(req, res) {
   const user = usuarioDoEmail(email);
   req.session.user = user;
   res.status(200).json({ ok: true, user });
+
+  resolverEmployeeCodePorEmail(email).then(notificarLoginSucesso).catch(() => {});
 }
 
 async function handleCallback(req, res) {
@@ -142,6 +161,8 @@ async function handleCallback(req, res) {
 
   req.session.user = usuario;
   res.redirect('/');
+
+  notificarLoginSucesso(employee.employee_code);
 }
 
 module.exports = async (req, res) => {

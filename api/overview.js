@@ -151,8 +151,17 @@ function porHora(rows, horaField, valorFn) {
   return arr;
 }
 
-async function getJson(base, path) {
-  const r = await fetch(base + path, { headers: { 'x-overview-internal': '1' } });
+// `cookie` repassa a sessão de quem chamou — desde que o server.js passou a
+// exigir login (pedido do Roberto em 2026-09-14, verificação via SeaTalk),
+// essas sub-chamadas HTTP internas viraram requisições novas sem sessão
+// nenhuma, e caíam todas em 401 "Não autenticado" mesmo com o usuário
+// logado no navegador (bug achado pelo Roberto em 2026-09-15: Overview
+// inteiro parava de trazer dado). O header 'x-overview-internal' já existia
+// mas nunca foi de fato checado no gate — não dava pra confiar nele mesmo
+// (um header é fácil de forjar por qualquer chamador externo); a sessão
+// real é o jeito certo de autorizar essas chamadas.
+async function getJson(base, path, cookie) {
+  const r = await fetch(base + path, { headers: { 'x-overview-internal': '1', cookie: cookie || '' } });
   const j = await r.json();
   if (!j.ok) throw new Error(j.erro || (path + ' respondeu erro'));
   return j;
@@ -1135,19 +1144,20 @@ module.exports = async (req, res) => {
 
   const proto = req.headers['x-forwarded-proto'] || 'https';
   const base = `${proto}://${req.headers.host}`;
+  const cookie = req.headers.cookie;
   const erros = {};
   const safe = async (nome, fn) => {
     try { return await fn(); } catch (err) { erros[nome] = err.message; return null; }
   };
 
   const [outbound, cluster, lh, fm, backlog, asm, conveyor, labor] = await Promise.all([
-    safe('outbound', () => getJson(base, '/api/outbound')),
-    safe('cluster', () => getJson(base, '/api/cluster')),
-    safe('inboundLh', () => getJson(base, '/api/inbound-lh')),
-    safe('inboundFm', () => getJson(base, '/api/inbound-fm')),
-    safe('backlog', () => getJson(base, '/api/backlog')),
-    safe('asm', () => getJson(base, '/api/asm')),
-    safe('conveyor', () => getJson(base, '/api/conveyor')),
+    safe('outbound', () => getJson(base, '/api/outbound', cookie)),
+    safe('cluster', () => getJson(base, '/api/cluster', cookie)),
+    safe('inboundLh', () => getJson(base, '/api/inbound-lh', cookie)),
+    safe('inboundFm', () => getJson(base, '/api/inbound-fm', cookie)),
+    safe('backlog', () => getJson(base, '/api/backlog', cookie)),
+    safe('asm', () => getJson(base, '/api/asm', cookie)),
+    safe('conveyor', () => getJson(base, '/api/conveyor', cookie)),
     safe('labor', () => getLabor()),
   ]);
 

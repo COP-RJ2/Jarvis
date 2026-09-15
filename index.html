@@ -1122,9 +1122,11 @@
       flex: 1; position: relative; overflow: hidden;
       display: flex; flex-direction: column; justify-content: space-between;
     }
-    .login-photo-panel img {
+    .login-photo-img {
       position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+      opacity: 0; transition: opacity 1.4s ease;
     }
+    .login-photo-img.active { opacity: 1; }
     .login-photo-overlay {
       position: relative; z-index: 1; height: 100%;
       display: flex; flex-direction: column; justify-content: space-between;
@@ -4340,7 +4342,8 @@
       </div>
     </div>
     <div class="login-photo-panel">
-      <img src="assets/login-hero.jpg" alt="Centro logístico COP RJ2" />
+      <img id="login-photo-a" class="login-photo-img active" src="assets/login/login-1.jpg" alt="Operação COP RJ2" />
+      <img id="login-photo-b" class="login-photo-img" alt="Operação COP RJ2" />
       <div class="login-photo-overlay">
         <div class="login-photo-top">
           <span class="login-photo-status"><b></b> Sistema Operacional Ativo</span>
@@ -7381,6 +7384,27 @@ async function authCheckSessao(){
   initSeatalkLogin();
 }
 document.addEventListener('DOMContentLoaded', authCheckSessao);
+
+// Rodízio de fotos da tela de login (pedido do Roberto em 2026-09-14) —
+// troca a cada 45s, com crossfade entre 2 <img> sobrepostas.
+const LOGIN_PHOTOS = ['assets/login/login-1.jpg', 'assets/login/login-2.jpg', 'assets/login/login-3.jpg'];
+function initLoginPhotoRotation(){
+  const imgs = [document.getElementById('login-photo-a'), document.getElementById('login-photo-b')];
+  if(!imgs[0] || !imgs[1] || LOGIN_PHOTOS.length < 2) return;
+  let ativa = 0;
+  let idx = 0;
+  setInterval(() => {
+    idx = (idx + 1) % LOGIN_PHOTOS.length;
+    const proxima = imgs[1 - ativa];
+    proxima.onload = () => {
+      imgs[ativa].classList.remove('active');
+      proxima.classList.add('active');
+      ativa = 1 - ativa;
+    };
+    proxima.src = LOGIN_PHOTOS[idx];
+  }, 45000);
+}
+document.addEventListener('DOMContentLoaded', initLoginPhotoRotation);
 
 function enterPortal(user){
   document.getElementById('login-screen').classList.add('hidden');

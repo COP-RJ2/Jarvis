@@ -4390,7 +4390,7 @@
      visual dele, arquivo code.html): esquerda = formulário/opções de login,
      direita = foto. Inverte o layout anterior (marca à esquerda, form à
      direita). -->
-<div id="login-screen">
+<div id="login-screen" class="hidden">
   <div class="login-wrap">
     <div class="login-form-panel">
       <div class="login-form-header">
@@ -7498,7 +7498,12 @@ async function authCheckSessao(){
     const r = await fetch('/api/auth?me=1');
     const j = await r.json();
     if(j.ok && j.user){ enterPortal(j.user); return; }
-  } catch(err){ /* sem sessão, fica na tela de login mesmo */ }
+  } catch(err){ /* sem sessão, mostra a tela de login abaixo */ }
+  // Só mostra a tela de login DEPOIS de confirmar que não tem sessão válida
+  // (pedido do Roberto em 2026-09-15) — antes ela ficava visível por padrão
+  // e "piscava" na tela pra quem já estava logado, toda vez que a página
+  // recarregava, enquanto esse fetch ainda estava em voo.
+  document.getElementById('login-screen').classList.remove('hidden');
   initSeatalkLogin();
 }
 document.addEventListener('DOMContentLoaded', authCheckSessao);

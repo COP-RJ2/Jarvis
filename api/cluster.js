@@ -369,6 +369,10 @@ module.exports = async (req, res) => {
     res.status(502).json({ ok: false, erro: err.message });
     return;
   }
+  // Debug temporário (Roberto reportou "Nenhuma rua no roster" em 2026-09-16)
+  // — loga o total de linhas e as colunas reais da aba config pra achar por
+  // que STAGING_DEPARA/RUA_ROSTER estão vindo vazios. Remover depois.
+  console.log('[cluster][debug] config total linhas:', configRows.length, '| colunas:', configRows.length ? Object.keys(configRows[0]).join(', ') : '(vazio)');
 
   // De-para código→rua + capacidade real por rua, direto da aba `config`
   // (colunas H-J: staging area id / staging area name / capacity). O roster

@@ -23,7 +23,7 @@
  * 2026-09-15) — sem bloquear a resposta, ver notificarLoginSucesso().
  */
 const { pool } = require('../db');
-const { emailPermitido, usuarioDoEmail, buscarWorkLocation } = require('./_users');
+const { emailPermitido, usuarioDoEmail, nomeDoEmail, buscarWorkLocation } = require('./_users');
 const { resolverEmployeeCodePorEmail, enviarMensagemDireta, trocarCodePorEmployee, buscarWorkLocationSeaTalk } = require('./_seatalk');
 
 // Work location: tenta primeiro o perfil oficial da SeaTalk (custom field
@@ -66,12 +66,14 @@ function horaAgora() {
   return new Date().toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' });
 }
 
-// Confirmação de login por DM (pedido do Roberto em 2026-09-15) — dispara
-// depois da sessão já aberta, sem bloquear a resposta/redirect: se o
-// SeaTalk falhar aqui, o login em si já aconteceu, só não chega o aviso.
-function notificarLoginSucesso(employeeCode) {
+// Confirmação de login por DM (pedido do Roberto em 2026-09-15, mensagem
+// personalizada pedida em 2026-09-16) — dispara depois da sessão já aberta,
+// sem bloquear a resposta/redirect: se o SeaTalk falhar aqui, o login em si
+// já aconteceu, só não chega o aviso.
+function notificarLoginSucesso(employeeCode, nome, workLocation) {
   if (!employeeCode) return;
-  enviarMensagemDireta(employeeCode, `JARVIS — Login bem-sucedido às ${horaAgora()}.`)
+  const destino = 'Jarvis' + (workLocation ? ' - ' + workLocation : '');
+  enviarMensagemDireta(employeeCode, `Olá ${nome}, login bem-sucedido ao ${destino} às ${horaAgora()}.`)
     .catch(err => console.error('[auth] falha ao notificar login via SeaTalk:', err.message));
 }
 
@@ -97,7 +99,13 @@ async function handleRequest(req, res) {
       res.status(404).json({ ok: false, erro: 'E-mail não encontrado no SeaTalk da organização.' });
       return;
     }
-    await enviarMensagemDireta(employeeCode, `JARVIS — seu código de acesso é ${code}. Válido por ${CODIGO_TTL_MIN} minutos.`);
+    // Mensagem personalizada (pedido do Roberto em 2026-09-16) — mesmo
+    // padrão de saudação + work location da confirmação de login, ver
+    // notificarLoginSucesso.
+    const nome = nomeDoEmail(email);
+    const workLocation = await resolverWorkLocation(employeeCode, email);
+    const destino = 'Jarvis' + (workLocation ? ' - ' + workLocation : '');
+    await enviarMensagemDireta(employeeCode, `Olá ${nome}, aqui está seu código de acesso ao ${destino}: ${code}. Válido por ${CODIGO_TTL_MIN} minutos.`);
   } catch (err) {
     console.error('[auth] falha ao enviar via SeaTalk:', err.message);
     // Em desenvolvimento (sem credencial do SeaTalk configurada ainda),
@@ -152,7 +160,7 @@ async function handleVerify(req, res) {
   req.session.user = user;
   res.status(200).json({ ok: true, user });
 
-  notificarLoginSucesso(employeeCode);
+  notificarLoginSucesso(employeeCode, user.name, user.workLocation);
 }
 
 async function handleCallback(req, res) {
@@ -185,7 +193,7 @@ async function handleCallback(req, res) {
   req.session.user = usuario;
   res.redirect('/');
 
-  notificarLoginSucesso(employee.employee_code);
+  notificarLoginSucesso(employee.employee_code, usuario.name, usuario.workLocation);
 }
 
 module.exports = async (req, res) => {

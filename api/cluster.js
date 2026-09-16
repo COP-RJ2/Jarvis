@@ -79,7 +79,7 @@
  *   destino, rua          listas separadas por vírgula
  *   q                     busca livre em "to number" + destino
  */
-const { fetchTabByGid, listTabs } = require('./_google');
+const { fetchTabByGid } = require('./_google');
 const { toNum, parseCSV } = require('./_period');
 
 const CLUSTER_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '646168208' };
@@ -370,14 +370,22 @@ module.exports = async (req, res) => {
     return;
   }
   // Debug temporário (Roberto reportou "Nenhuma rua no roster" em 2026-09-16)
-  // — a amostra de configRows mostrou dado de OUTRA aba (IBS-.../ATP-...) em
-  // vez das ruas reais (OBS-.../RUA 001...) — suspeita de que o gid fixo não
-  // aponta mais pra aba certa. Lista todas as abas da planilha pra achar o
-  // gid real da aba "config". Remover depois de corrigido.
-  try {
-    const tabs = await listTabs(CONFIG_SHEET.spreadsheetId);
-    console.log('[cluster][debug] abas da planilha:', JSON.stringify(tabs));
-  } catch (e) { console.log('[cluster][debug] listTabs falhou:', e.message); }
+  // — gid confirmado correto (config = 1408724077), mas a amostra das 5
+  // primeiras linhas mostrou entradas IBS-.../ATP-... (inbound), não
+  // OBS-.../RUA ### (outbound/clusterização, confirmado pelo Roberto que é
+  // o que deveria estar em `config`). Varre as 231 linhas inteiras pra ver
+  // se as linhas OBS-/RUA existem em algum lugar e por que não batem no
+  // filtro. Remover depois de corrigido.
+  {
+    const comRua = configRows.filter(r => r['staging area id'] && r['staging area name']);
+    const prefixCount = {};
+    comRua.forEach(r => {
+      const p = String(r['staging area id']).split('-')[0];
+      prefixCount[p] = (prefixCount[p] || 0) + 1;
+    });
+    const obsRows = comRua.filter(r => /^RUA \d+$/.test(r['staging area name']) || /^RESERVA/i.test(r['staging area name']));
+    console.log('[cluster][debug] linhas com id+rua preenchidos:', comRua.length, '| prefixos de id:', JSON.stringify(prefixCount), '| linhas que batem RUA###/RESERVA:', obsRows.length, '| amostra dessas:', JSON.stringify(obsRows.slice(0,3)));
+  }
 
   // De-para código→rua + capacidade real por rua, direto da aba `config`
   // (colunas H-J: staging area id / staging area name / capacity). O roster

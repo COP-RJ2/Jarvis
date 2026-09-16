@@ -81,9 +81,34 @@
  */
 const { fetchTabByGid } = require('./_google');
 const { toNum, parseCSV } = require('./_period');
+const { enrich, toCarroRow } = require('./_outbound');
 
 const CLUSTER_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '646168208' };
 const CONFIG_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '1408724077' };
+// Próx. CPT / Timer CPT por rua (pedido do Roberto em 2026-09-16): mesma
+// aba rawdata_out que api/outbound.js usa, só que aqui só interessa
+// destino+cpt_planejado+cpt_realizado+status_agrupado por viagem — ver
+// proximoCptPorDestino mais abaixo.
+const OUTBOUND_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '0' };
+// Viagem "pendente" pro CPT ainda não ter acontecido de verdade (mesmo
+// critério já usado no card "Em Aberto" do Outbound, index.html) — sem
+// cpt_realizado E fora dos status terminais negativos (não conta como
+// "vai chegar" o que já foi cancelado/não vingou).
+const CPT_STATUS_TERMINAL_NEGATIVO = new Set(['CANCELADO', 'INFRUTÍFERA', 'NO SHOW', 'NÃO CONSUMIDA']);
+// Pro destino de cada rua (clusterEsperado), acha o CPT previsto mais
+// próximo entre as viagens pendentes — inclui os já atrasados de propósito
+// (um CPT vencido sem ter fechado é o mais urgente de todos, não deve sumir
+// da lista; o front decide como exibir atraso vs contagem regressiva).
+function proximoCptPorDestino(outboundRows) {
+  const porDestino = new Map();
+  outboundRows.forEach(r => {
+    if (!r.destino || !r.cpt_planejado || r.cpt_realizado) return;
+    if (CPT_STATUS_TERMINAL_NEGATIVO.has(r.status_agrupado)) return;
+    const atual = porDestino.get(r.destino);
+    if (!atual || r.cpt_planejado < atual) porDestino.set(r.destino, r.cpt_planejado);
+  });
+  return porDestino;
+}
 // Fonte dedicada da Esteira On-time (confirmado com o Roberto em 2026-08-10)
 // — colunas: pack_name, dest_station_name, total_quantity, turno,
 // data_ajustada, dest_corrigido. Usa dest_corrigido (não dest_station_name)
@@ -361,32 +386,15 @@ function aggregate(rows) {
 }
 
 module.exports = async (req, res) => {
-  let rows, configRows;
+  let rows, configRows, outboundRawRows;
   try {
     ({ rows } = await fetchTabByGid(CLUSTER_SHEET.spreadsheetId, CLUSTER_SHEET.gid));
     ({ rows: configRows } = await fetchTabByGid(CONFIG_SHEET.spreadsheetId, CONFIG_SHEET.gid));
+    ({ rows: outboundRawRows } = await fetchTabByGid(OUTBOUND_SHEET.spreadsheetId, OUTBOUND_SHEET.gid));
   } catch (err) {
     res.status(502).json({ ok: false, erro: err.message });
     return;
   }
-  // Debug temporário (Roberto reportou "Nenhuma rua no roster" em 2026-09-16)
-  // — gid confirmado correto (config = 1408724077), mas a amostra das 5
-  // primeiras linhas mostrou entradas IBS-.../ATP-... (inbound), não
-  // OBS-.../RUA ### (outbound/clusterização, confirmado pelo Roberto que é
-  // o que deveria estar em `config`). Varre as 231 linhas inteiras pra ver
-  // se as linhas OBS-/RUA existem em algum lugar e por que não batem no
-  // filtro. Remover depois de corrigido.
-  {
-    const comRua = configRows.filter(r => r['staging area id'] && r['staging area name']);
-    const prefixCount = {};
-    comRua.forEach(r => {
-      const p = String(r['staging area id']).split('-')[0];
-      prefixCount[p] = (prefixCount[p] || 0) + 1;
-    });
-    const obsRows = comRua.filter(r => /^RUA \d+$/.test(r['staging area name']) || /^RESERVA/i.test(r['staging area name']));
-    console.log('[cluster][debug] linhas com id+rua preenchidos:', comRua.length, '| prefixos de id:', JSON.stringify(prefixCount), '| linhas que batem RUA###/RESERVA:', obsRows.length, '| amostra dessas:', JSON.stringify(obsRows.slice(0,3)));
-  }
-
   // De-para código→rua + capacidade real por rua, direto da aba `config`
   // (colunas H-J: staging area id / staging area name / capacity). O roster
   // de ruas segue a ORDEM DA PLANILHA — preserva onde a RESERVA 37A fica
@@ -525,6 +533,13 @@ module.exports = async (req, res) => {
     if (r.destino) acc.destinos.set(r.destino, (acc.destinos.get(r.destino) || 0) + 1);
   });
 
+  // Próx. CPT / Timer CPT por rua (pedido do Roberto em 2026-09-16) — a
+  // aba rawdata_out precisa de `enrich` antes do toCarroRow (mesmo pipeline
+  // do api/outbound.js), senão cpt_scheduled_origin_edited/status_agrupado
+  // não vêm no formato certo.
+  const outboundRows = (outboundRawRows || []).filter(r => r.cutoff).map(enrich).map(toCarroRow);
+  const CPT_POR_DESTINO = proximoCptPorDestino(outboundRows);
+
   // Correção de clusterização (confirmado com o Roberto em 2026-08-04): rua
   // vazia OU com o destino dominante (fanout) batendo o cluster esperado
   // (coluna "Cluster" da config) = correta. Rua ocupada com fanout diferente
@@ -534,9 +549,10 @@ module.exports = async (req, res) => {
   const grade = RUA_ROSTER.map(rua => {
     const capacidade = CAPACIDADE_POR_RUA.get(rua) || 0;
     const clusterEsperado = CLUSTER_ESPERADO.get(rua) || null;
+    const proximoCpt = clusterEsperado ? (CPT_POR_DESTINO.get(clusterEsperado) || null) : null;
     const acc = porRua.get(rua);
     if (!acc || (!acc.sacaTOs && !acc.outrosTOs)) {
-      return { rua, ocupadas: 0, capacidade, pct: 0, saca: 0, scuttle: 0, pacotes: 0, agingMedio: null, fanout: null, clusterEsperado, clusterCorreto: true };
+      return { rua, ocupadas: 0, capacidade, pct: 0, saca: 0, scuttle: 0, pacotes: 0, agingMedio: null, fanout: null, clusterEsperado, clusterCorreto: true, proximoCpt };
     }
     const posicoes = acc.outrosTOs + Math.ceil(acc.sacaTOs / SACOS_POR_POSICAO);
     let fanout = null, fanoutMax = 0;
@@ -560,6 +576,7 @@ module.exports = async (req, res) => {
       fanout,
       clusterEsperado,
       clusterCorreto,
+      proximoCpt,
     };
   });
   const posicoesOcupadasTotal = grade.reduce((s, g) => s + g.ocupadas, 0);

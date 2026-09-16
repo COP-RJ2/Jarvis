@@ -1581,6 +1581,12 @@
     .clst-aging-mid { background: rgba(245,158,11,.12); color: #fbbf24; }
     .clst-aging-lo  { color: var(--text-sub); }
 
+    /* Timer CPT (pedido do Roberto em 2026-09-16) — mesma paleta do aging:
+       vermelho = CPT já vencido sem ter fechado, amber = faltam <=30min. */
+    .clst-cpt-timer { font-variant-numeric: tabular-nums; }
+    .clst-cpt-atrasado { background: rgba(239,68,68,.15); color: #f87171; font-weight: 700; }
+    .clst-cpt-urgente  { background: rgba(245,158,11,.12); color: #fbbf24; font-weight: 700; }
+
     /* Section title row in table */
     .clst-section-row td {
       background: var(--surface-3);
@@ -12177,6 +12183,47 @@ function clusterRuaCurta(rua){
   return rua.replace('RUA ','').replace('RESERVA ','R.');
 }
 
+// Próx. CPT / Timer CPT (pedido do Roberto em 2026-09-16) — g.proximoCpt
+// vem cru da planilha em horário de Brasília ("YYYY-MM-DD HH:MM:SS"), mesma
+// convenção de todo o PULSO (ver comentário sobre BR_PARA_UTC_MS em
+// api/cluster.js — sem essa correção o timer adianta/atrasa 3h). Interpretar
+// direto como UTC (só anexando 'Z') deixa o instante 3h no passado do que
+// realmente é; corrige somando de volta o offset de Brasília.
+const CLST_BR_PARA_UTC_MS = 3 * 60 * 60 * 1000;
+function clstParseCptMs(v){
+  if(!v) return null;
+  const ms = new Date(String(v).replace(' ','T')+'Z').getTime();
+  return isNaN(ms) ? null : ms + CLST_BR_PARA_UTC_MS;
+}
+function clstFmtProximoCpt(v){
+  const ms = clstParseCptMs(v);
+  if(ms == null) return '—';
+  const d = new Date(ms);
+  return `${String(d.getUTCDate()).padStart(2,'0')}/${String(d.getUTCMonth()+1).padStart(2,'0')} ${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')}`;
+}
+// Timer em si: recalculado ao vivo (setInterval em clstTickCptTimers), não
+// uma string estática — senão ficaria desatualizado entre um refresh e outro
+// da página (a grade só recarrega a cada pulsoLoad).
+function clstFmtTimerCpt(ms){
+  if(ms == null) return { texto:'—', classe:'' };
+  const diffMin = Math.round((ms - Date.now()) / 60000);
+  const atrasado = diffMin < 0;
+  const abs = Math.abs(diffMin);
+  const h = Math.floor(abs/60), m = abs%60;
+  const texto = (atrasado?'-':'') + (h ? `${h}h${String(m).padStart(2,'0')}` : `${m}min`);
+  const classe = atrasado ? 'clst-cpt-atrasado' : abs <= 30 ? 'clst-cpt-urgente' : '';
+  return { texto, classe };
+}
+function clstTickCptTimers(){
+  document.querySelectorAll('.clst-cpt-timer[data-cpt-ms]').forEach(el => {
+    const ms = Number(el.dataset.cptMs);
+    const { texto, classe } = clstFmtTimerCpt(isNaN(ms) ? null : ms);
+    el.textContent = texto;
+    el.className = 'clst-cpt-timer ' + classe;
+  });
+}
+setInterval(clstTickCptTimers, 30000);
+
 // Botão "Agrupar" no topo do card Clusterização Outbound — minimiza/expande a
 // grade de ruas. O estado sobrevive aos reloads de dados (onData só troca o
 // innerHTML do wrap, não o display do próprio wrap).
@@ -12226,8 +12273,12 @@ function renderClusterGrid(data){
   tbody += `<tr><td class="clst-rowlabel">POS. CAP</td>${grade.map(g => `<td>${g.capacidade}</td>`).join('')}</tr>`;
   tbody += `<tr><td class="clst-rowlabel">AGING TO'S</td>${grade.map(g => `<td class="${clusterAgingClasse(g.agingMedio)}">${g.agingMedio==null?'':String(g.agingMedio).replace('.',',')}</td>`).join('')}</tr>`;
   tbody += `<tr><td class="clst-rowlabel">PACOTES</td>${grade.map(g => `<td>${g.ocupadas ? g.pacotes.toLocaleString('pt-BR') : ''}</td>`).join('')}</tr>`;
-  tbody += emptyRow('Próx. CPT');
-  tbody += emptyRow('Timer CPT');
+  tbody += `<tr><td class="clst-rowlabel">PRÓX. CPT</td>${grade.map(g => `<td>${clstFmtProximoCpt(g.proximoCpt)}</td>`).join('')}</tr>`;
+  tbody += `<tr><td class="clst-rowlabel">TIMER CPT</td>${grade.map(g => {
+    const ms = clstParseCptMs(g.proximoCpt);
+    const { texto, classe } = clstFmtTimerCpt(ms);
+    return `<td class="clst-cpt-timer ${classe}" ${ms!=null?`data-cpt-ms="${ms}"`:''}>${texto}</td>`;
+  }).join('')}</tr>`;
   tbody += `<tr><td class="clst-rowlabel">OCUPAÇÃO</td>${grade.map(g => `<td class="${clusterOcupClasse(g.pct)}">${g.pct}%</td>`).join('')}</tr>`;
 
   tbody += sectionRow('OCUPAÇÃO STAGE POR RUA — Live');

@@ -21,6 +21,13 @@
  *     message = { tag: "text", text: { content } }
  *   - GET  /open_login/code2employee?code=...  (Bearer app_access_token)
  *     -> { code, employee: { employee_code, avatar, name, email, mobile } }
+ *   - GET  /contacts/v2/profile?employee_code=...  (Bearer app_access_token,
+ *     1+ employee_code repetido na query, até 500) -> { code, employees:
+ *     [{ employee_code, name, email, departments, custom_fields: [{name,
+ *     type, value}], ... }] } — confirmado com o Roberto em 2026-09-15 via
+ *     doc oficial ("Get Employee Profile"). Requer a permissão "Get Contact
+ *     Profile" (+ Data Scope) aprovada no console — ainda não confirmado se
+ *     já está liberada; ver buscarWorkLocationSeaTalk.
  */
 
 const HOST = 'https://openapi.seatalk.io';
@@ -77,6 +84,24 @@ async function enviarMensagemDireta(employeeCode, texto) {
   return body;
 }
 
+// Work location vem como um custom_field do perfil (não um campo fixo) —
+// procura pelo nome exato "Work Location" (confirmado no exemplo oficial da
+// doc) e devolve o `value`. null se o employee não tiver esse custom field
+// preenchido, ou se a permissão "Get Contact Profile" ainda não tiver sido
+// aprovada (deixa o chamador cair pro fallback da tabela work_locations).
+async function buscarWorkLocationSeaTalk(employeeCode) {
+  const token = await getAppAccessToken();
+  const r = await fetch(`${HOST}/contacts/v2/profile?employee_code=${encodeURIComponent(employeeCode)}`, {
+    headers: { Authorization: 'Bearer ' + token },
+  });
+  const body = await r.json();
+  if (!r.ok || body.code) throw new Error('SeaTalk profile: ' + (body.message || r.status));
+
+  const employee = (body.employees || [])[0];
+  const campo = employee && (employee.custom_fields || []).find(f => f.name === 'Work Location');
+  return (campo && campo.value) || null;
+}
+
 async function trocarCodePorEmployee(code) {
   const token = await getAppAccessToken();
   const r = await fetch(`${HOST}/open_login/code2employee?code=${encodeURIComponent(code)}`, {
@@ -87,4 +112,4 @@ async function trocarCodePorEmployee(code) {
   return body.employee; // { employee_code, avatar, name, email, mobile }
 }
 
-module.exports = { getAppAccessToken, resolverEmployeeCodePorEmail, enviarMensagemDireta, trocarCodePorEmployee };
+module.exports = { getAppAccessToken, resolverEmployeeCodePorEmail, enviarMensagemDireta, trocarCodePorEmployee, buscarWorkLocationSeaTalk };

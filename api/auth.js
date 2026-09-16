@@ -24,7 +24,24 @@
  */
 const { pool } = require('../db');
 const { emailPermitido, usuarioDoEmail, buscarWorkLocation } = require('./_users');
-const { resolverEmployeeCodePorEmail, enviarMensagemDireta, trocarCodePorEmployee } = require('./_seatalk');
+const { resolverEmployeeCodePorEmail, enviarMensagemDireta, trocarCodePorEmployee, buscarWorkLocationSeaTalk } = require('./_seatalk');
+
+// Work location: tenta primeiro o perfil oficial da SeaTalk (custom field
+// "Work Location" — precisa da permissão "Get Contact Profile" aprovada no
+// console, ainda não confirmado); se falhar por qualquer motivo (permissão
+// pendente, employee_code ausente, etc.), cai pro de-para manual da tabela
+// work_locations. Nunca deixa o login quebrar por causa disso.
+async function resolverWorkLocation(employeeCode, email) {
+  if (employeeCode) {
+    try {
+      const wl = await buscarWorkLocationSeaTalk(employeeCode);
+      if (wl) return wl;
+    } catch (err) {
+      console.warn('[auth] work location via SeaTalk falhou, caindo pro fallback:', err.message);
+    }
+  }
+  return buscarWorkLocation(email).catch(() => null);
+}
 
 const CODIGO_TTL_MIN = 5;
 const MAX_TENTATIVAS = 5;
@@ -129,12 +146,13 @@ async function handleVerify(req, res) {
   }
 
   await pool.query('DELETE FROM auth_codes WHERE email = $1', [email]);
+  const employeeCode = await resolverEmployeeCodePorEmail(email).catch(() => null);
   const user = usuarioDoEmail(email);
-  user.workLocation = await buscarWorkLocation(email).catch(() => null);
+  user.workLocation = await resolverWorkLocation(employeeCode, email);
   req.session.user = user;
   res.status(200).json({ ok: true, user });
 
-  resolverEmployeeCodePorEmail(email).then(notificarLoginSucesso).catch(() => {});
+  notificarLoginSucesso(employeeCode);
 }
 
 async function handleCallback(req, res) {
@@ -159,11 +177,10 @@ async function handleCallback(req, res) {
   const usuario = usuarioDoEmail(email);
   if (employee.name) usuario.name = employee.name;
   if (employee.avatar) usuario.avatar = employee.avatar;
-  // Work location (pedido do Roberto em 2026-09-15): confirmado ao vivo que
-  // o code2employee da SeaTalk só devolve employee_code/email/mobile/name/
-  // avatar — não existe campo de work location nessa resposta. Busca do
-  // de-para próprio (tabela work_locations) em vez de depender da SeaTalk.
-  usuario.workLocation = await buscarWorkLocation(email).catch(() => null);
+  // Work location (pedido do Roberto em 2026-09-15): o code2employee em si
+  // não traz isso, mas dá pra buscar via GET /contacts/v2/profile usando o
+  // employee_code que acabamos de receber — ver resolverWorkLocation.
+  usuario.workLocation = await resolverWorkLocation(employee.employee_code, email);
 
   req.session.user = usuario;
   res.redirect('/');

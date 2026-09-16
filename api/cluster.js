@@ -399,6 +399,11 @@ module.exports = async (req, res) => {
     if (r.cluster) CLUSTER_ESPERADO.set(rua, r.cluster);
   });
   const CAPACIDADE_TOTAL_CD = RUA_ROSTER.reduce((s, rua) => s + (CAPACIDADE_POR_RUA.get(rua) || 0), 0);
+  // Debug temporário (roster vazio, 2026-09-16) — amostra bruta de 5 linhas
+  // de configRows pra ver o valor exato de staging_area_id/name que estão
+  // chegando (espaço extra, formatação diferente etc.), e o resultado final.
+  console.log('[cluster][debug] roster final:', RUA_ROSTER.length, 'ruas | amostra configRows:',
+    JSON.stringify(configRows.slice(0, 5).map(r => ({ id: r['staging area id'], rua: r['staging area name'], cap: r.capacity }))));
 
   // Reconstrói destino/rua/stage/aging a partir das colunas reais de hoje
   // (receiver, staging area, create time) + o de-para acima. Ordenação/"Att."

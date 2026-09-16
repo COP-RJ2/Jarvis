@@ -79,7 +79,7 @@
  *   destino, rua          listas separadas por vírgula
  *   q                     busca livre em "to number" + destino
  */
-const { fetchTabByGid } = require('./_google');
+const { fetchTabByGid, listTabs } = require('./_google');
 const { toNum, parseCSV } = require('./_period');
 
 const CLUSTER_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '646168208' };
@@ -370,9 +370,14 @@ module.exports = async (req, res) => {
     return;
   }
   // Debug temporário (Roberto reportou "Nenhuma rua no roster" em 2026-09-16)
-  // — loga o total de linhas e as colunas reais da aba config pra achar por
-  // que STAGING_DEPARA/RUA_ROSTER estão vindo vazios. Remover depois.
-  console.log('[cluster][debug] config total linhas:', configRows.length, '| colunas:', configRows.length ? Object.keys(configRows[0]).join(', ') : '(vazio)');
+  // — a amostra de configRows mostrou dado de OUTRA aba (IBS-.../ATP-...) em
+  // vez das ruas reais (OBS-.../RUA 001...) — suspeita de que o gid fixo não
+  // aponta mais pra aba certa. Lista todas as abas da planilha pra achar o
+  // gid real da aba "config". Remover depois de corrigido.
+  try {
+    const tabs = await listTabs(CONFIG_SHEET.spreadsheetId);
+    console.log('[cluster][debug] abas da planilha:', JSON.stringify(tabs));
+  } catch (e) { console.log('[cluster][debug] listTabs falhou:', e.message); }
 
   // De-para código→rua + capacidade real por rua, direto da aba `config`
   // (colunas H-J: staging area id / staging area name / capacity). O roster

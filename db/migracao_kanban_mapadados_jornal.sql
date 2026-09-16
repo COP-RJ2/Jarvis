@@ -124,4 +124,23 @@ CREATE TABLE IF NOT EXISTS jornal_campanhas (
 );
 CREATE INDEX IF NOT EXISTS ix_jornal_campanhas_soc ON jornal_campanhas (soc);
 
+-- Informativos — acervo AVULSO de pôsteres/avisos em imagem (não é edição
+-- periódica, cada um é publicado quando surge a necessidade). Hoje também
+-- é arquivo estático + informativos/manifest.json — mesmo problema do
+-- Jornal Semanal (publicar = deploy). Campos conforme o texto de ajuda já
+-- existente na tela: título, categoria, data e arquivo.
+CREATE TABLE IF NOT EXISTS jornal_informativos (
+  id            bigserial PRIMARY KEY,
+  soc           text NOT NULL REFERENCES socs(soc),
+  titulo        text NOT NULL,
+  categoria     text,
+  data          date,
+  imagem        bytea NOT NULL,
+  imagem_tipo   text,      -- mime type, ex: image/png
+  imagem_nome   text,      -- nome original, pra download
+  publicado_por text,
+  criado_em     timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS ix_jornal_informativos_soc ON jornal_informativos (soc);
+
 SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name;

@@ -430,6 +430,7 @@ CREATE TABLE IF NOT EXISTS arvore_valores (
 --    fato/snapshot — é conteúdo direto, 1 linha = 1 item. Ver
 --    db/migracao_kanban_mapadados_jornal.sql para o DDL completo (Kanban
 --    normalizado em 3 tabelas, Mapa de Dados 1 tabela, Jornal em 4 —
---    edições com PDF em bytea, aniversariantes/avisos/campanhas). Todas
---    com soc.
+--    edições com PDF em bytea, aniversariantes/avisos/campanhas/
+--    informativos — este último é o acervo AVULSO de pôsteres/imagem,
+--    diferente da edição semanal periódica). Todas com soc.
 -- ============================================================================

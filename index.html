@@ -7374,12 +7374,12 @@ function applyUser(user){
       const img = document.createElement('img');
       img.src = user.avatar;
       img.alt = user.name;
-      // O avatar que o SeaTalk devolve já vem com uma moldura quadrada
-      // arredondada azul "assada" nos pixels da própria foto (não é uma
-      // borda CSS que dê pra tirar) — escala pra dentro (zoom) pra recortar
-      // essa moldura fora do círculo, deixando só a foto (pedido do Roberto
-      // em 2026-09-15).
-      img.style.cssText = 'width:150%;height:150%;object-fit:cover;position:relative;left:-25%;top:-25%;';
+      // O avatar que o SeaTalk devolve já vem numa moldura quadrada
+      // arredondada azul (mesmo molde do .user-avatar, que já é
+      // rounded-square e não círculo — ver override "Avatar em
+      // rounded-square" mais acima). Sem zoom/corte: só preenche o quadrado
+      // (pedido do Roberto em 2026-09-16, o zoom anterior cortava demais).
+      img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
       img.onerror = () => { av.textContent = user.initials; };
       av.appendChild(img);
     } else {

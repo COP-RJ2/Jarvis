@@ -434,3 +434,10 @@ CREATE TABLE IF NOT EXISTS arvore_valores (
 --    informativos — este último é o acervo AVULSO de pôsteres/imagem,
 --    diferente da edição semanal periódica). Todas com soc.
 -- ============================================================================
+
+
+-- ============================================================================
+-- 5. PACKED ON TIME (pedido do Roberto em 2026-09-16). Ver
+--    db/migracao_packed_on_time.sql e docs/ (de-para em MD enviado pelo
+--    Roberto) para o schema completo e o mapeamento de colunas.
+-- ============================================================================

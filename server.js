@@ -36,7 +36,11 @@ app.use(session({
   secret: process.env.SESSION_SECRET || 'jarvis-dev-secret-troque-em-producao',
   resave: false,
   saveUninitialized: false,
-  cookie: { maxAge: 30 * 24 * 60 * 60 * 1000, httpOnly: true, sameSite: 'lax' }, // 30 dias
+  // 2h de inatividade (pedido do Roberto em 2026-09-16, reduzido dos 30 dias
+  // anteriores) — rolling:true renova a janela a cada request, então são 2h
+  // sem uso, não 2h fixas desde o login.
+  rolling: true,
+  cookie: { maxAge: 2 * 60 * 60 * 1000, httpOnly: true, sameSite: 'lax' }, // 2 horas
 }));
 
 // --- Rotas da API: cada api/<nome>.js (exceto os que começam com "_")

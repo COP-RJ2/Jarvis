@@ -521,6 +521,23 @@
     .ds-badge.loading{ background: rgba(245,158,11,.12);  color: #fbbf24; }
     .ds-badge.error  { background: rgba(239,68,68,.12);   color: #f87171; }
 
+    /* Botão (i) de info da página (pedido do Roberto em 2026-09-16) — mesmo
+       tamanho/posição inline do ds-badge, pra caber ao lado do título sem
+       empurrar nada. */
+    .page-info-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 18px; height: 18px; margin-left: 6px; border-radius: 50%;
+      background: var(--surface-3); color: var(--text-muted);
+      font-size: 10px; cursor: pointer; vertical-align: middle;
+      transition: background var(--transition), color var(--transition);
+    }
+    .page-info-btn:hover { background: var(--accent-soft); color: var(--accent); }
+    .page-info-body { padding: 18px 22px 22px; max-height: 60vh; overflow-y: auto; }
+    .page-info-item { padding: 12px 0; border-bottom: 1px solid var(--border); }
+    .page-info-item:last-child { border-bottom: none; }
+    .page-info-term { font-size: 12.5px; font-weight: 700; color: var(--text); margin-bottom: 3px; }
+    .page-info-desc { font-size: 12px; color: var(--text-sub); line-height: 1.5; }
+
     /* ── KPI STRIP (horizontal inline like the reference) ────── */
     .kpi-strip {
       display: grid;
@@ -4939,6 +4956,20 @@
       <div id="pulso-root-monitor" style="display:none"></div>
     </section>
 
+    <!-- Info da página (i) — piloto na Clusterização, pedido do Roberto em
+         2026-09-16: explica cada card/KPI em linguagem simples. Mesmo
+         padrão de modal a nível de body do COP Boy, pra não introduzir
+         componente novo nem mexer em nenhum layout de card existente. -->
+    <div class="modal-overlay" id="page-info-overlay" onclick="if(event.target===this) closePageInfo()">
+      <div class="modal" style="max-width:560px">
+        <div class="modal-header">
+          <span class="modal-title"><i class="fas fa-circle-info" style="color:var(--accent);margin-right:8px"></i>Sobre esta página <span id="page-info-title"></span></span>
+          <button class="modal-close" onclick="closePageInfo()"><i class="fas fa-xmark"></i></button>
+        </div>
+        <div id="page-info-body" class="page-info-body"></div>
+      </div>
+    </div>
+
     <!-- Pipboy — painel de insights compartilhado por todas as páginas do pacote padrão -->
     <div class="modal-overlay" id="pulso-pipboy-overlay" onclick="if(event.target===this) pulsoClosePipboy()">
       <div class="modal" style="max-width:560px">
@@ -5564,7 +5595,7 @@
         <section id="section-clusterizacao" class="section">
       <div class="section-header" id="section-clusterizacao-header">
         <div class="section-header-left">
-          <div class="section-title">Clusterização <span class="ds-badge ok" id="ds-badge-clusterizacao" style="margin-left:8px"></span></div>
+          <div class="section-title">Clusterização <span class="ds-badge ok" id="ds-badge-clusterizacao" style="margin-left:8px"></span><span class="page-info-btn" onclick="openPageInfo('clusterizacao')" title="O que é cada card desta página"><i class="fas fa-info"></i></span></div>
           <div class="section-subtitle">Mapa de Ocupação · Ruas de Stage</div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
@@ -8625,6 +8656,45 @@ function pulsoGenericInsights(key, data){
     });
   }
   return insights;
+}
+
+/* ================================================================
+   INFO DA PÁGINA (i) — piloto na Clusterização (pedido do Roberto em
+   2026-09-16). Conteúdo extraído dos comentários reais de api/cluster.js
+   (não é explicação inventada — é a regra de negócio já documentada e
+   confirmada com o Roberto, traduzida pra linguagem de usuário final).
+   Fica hardcoded aqui por enquanto (mesmo estágio dos outros textos
+   estáticos do site); quando o de-para de conteúdo existir no Postgres,
+   dá pra mover pra lá e ficar editável sem deploy.
+================================================================ */
+const PAGE_INFO = {
+  clusterizacao: {
+    title: 'Clusterização',
+    items: [
+      { termo: '% Clusterização', desc: 'Mede se cada rua está com o destino certo. Uma rua conta como "correta" quando está vazia OU quando o destino que mais aparece nela (o "fanout") bate com o destino esperado cadastrado pra aquela rua. Rua ocupada com destino diferente do esperado conta como incorreta.' },
+      { termo: 'Ocupação Total', desc: 'Quanto da capacidade física das ruas já está em uso. Sacos contam 10 por posição (10 sacos = 1 posição ocupada); os outros tipos de volume (Scuttle, Volumoso, Pallet) ocupam 1 posição cada.' },
+      { termo: 'Pendentes', desc: 'Pacotes do tipo Saco ou Scuttle que ainda não têm rua física definida. Volume 3PL não entra nessa conta, porque 3PL nunca recebe endereço de rua — contar ele como "pendente" infla o número sem necessidade.' },
+      { termo: 'Aging Médio', desc: 'Tempo médio (em horas) que os TOs estão parados, contado desde a criação até agora. TOs muito antigos e com pouca quantidade (resíduo operacional) já são removidos antes desse cálculo, pra não distorcer a média com casos esquecidos há muito tempo.' },
+      { termo: 'Resíduo Operacional', desc: 'TOs com poucos volumes (menos de 15) e muito tempo parado (mais de 15 dias) somem de todos os cards, da grade e da tabela — não é filtro visual, é removido antes de qualquer cálculo, porque não representa operação real do dia a dia.' },
+      { termo: 'SoC / XPT / LM Hub / 3PL', desc: 'Categoria de quem recebe o volume, decidida pelo prefixo do nome do destino. Só SoC, XPT e LM Hub realmente recebem endereço de rua — 3PL vai pra uma área própria que não é endereçada.' },
+      { termo: 'Grade de ruas', desc: 'Cada quadrado é uma rua física do CD. A cor mostra o quanto da capacidade daquela rua está ocupada; o destino mostrado é o fanout (o destino que mais aparece ali).' },
+    ],
+  },
+};
+
+function openPageInfo(key){
+  const info = PAGE_INFO[key];
+  if(!info) return;
+  document.getElementById('page-info-title').textContent = '— ' + info.title;
+  document.getElementById('page-info-body').innerHTML = info.items.map(it => `
+    <div class="page-info-item">
+      <div class="page-info-term">${pulsoEscHtml(it.termo)}</div>
+      <div class="page-info-desc">${pulsoEscHtml(it.desc)}</div>
+    </div>`).join('');
+  document.getElementById('page-info-overlay').classList.add('open');
+}
+function closePageInfo(){
+  document.getElementById('page-info-overlay').classList.remove('open');
 }
 
 function pulsoOpenPipboy(key){

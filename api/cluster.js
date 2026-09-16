@@ -99,13 +99,20 @@ const CPT_STATUS_TERMINAL_NEGATIVO = new Set(['CANCELADO', 'INFRUTÍFERA', 'NO S
 // próximo entre as viagens pendentes — inclui os já atrasados de propósito
 // (um CPT vencido sem ter fechado é o mais urgente de todos, não deve sumir
 // da lista; o front decide como exibir atraso vs contagem regressiva).
+// Chave normalizada (trim + lowercase) — o mesmo destino aparece com
+// capitalização diferente entre rawdata_out (destino) e a coluna Cluster da
+// config (clusterEsperado), mesmo bug já corrigido pro farol de
+// clusterização (ver "normaliza" mais abaixo, bug da RUA 005 em 2026-08-11)
+// — comparação exata aqui fazia o CPT nunca bater com nenhuma rua.
+function normalizaDestino(s) { return String(s || '').trim().toLowerCase(); }
 function proximoCptPorDestino(outboundRows) {
-  const porDestino = new Map();
+  const porDestino = new Map(); // chave normalizada -> cpt_planejado
   outboundRows.forEach(r => {
     if (!r.destino || !r.cpt_planejado || r.cpt_realizado) return;
     if (CPT_STATUS_TERMINAL_NEGATIVO.has(r.status_agrupado)) return;
-    const atual = porDestino.get(r.destino);
-    if (!atual || r.cpt_planejado < atual) porDestino.set(r.destino, r.cpt_planejado);
+    const chave = normalizaDestino(r.destino);
+    const atual = porDestino.get(chave);
+    if (!atual || r.cpt_planejado < atual) porDestino.set(chave, r.cpt_planejado);
   });
   return porDestino;
 }
@@ -549,10 +556,12 @@ module.exports = async (req, res) => {
   const grade = RUA_ROSTER.map(rua => {
     const capacidade = CAPACIDADE_POR_RUA.get(rua) || 0;
     const clusterEsperado = CLUSTER_ESPERADO.get(rua) || null;
-    const proximoCpt = clusterEsperado ? (CPT_POR_DESTINO.get(clusterEsperado) || null) : null;
     const acc = porRua.get(rua);
     if (!acc || (!acc.sacaTOs && !acc.outrosTOs)) {
-      return { rua, ocupadas: 0, capacidade, pct: 0, saca: 0, scuttle: 0, pacotes: 0, agingMedio: null, fanout: null, clusterEsperado, clusterCorreto: true, proximoCpt };
+      // Rua vazia: sem fanout, sem CPT (pedido do Roberto em 2026-09-16 — o
+      // CPT segue o Fanout Endereçado, o destino REAL ocupando a rua agora,
+      // não o Cluster Ideal/configurado).
+      return { rua, ocupadas: 0, capacidade, pct: 0, saca: 0, scuttle: 0, pacotes: 0, agingMedio: null, fanout: null, clusterEsperado, clusterCorreto: true, proximoCpt: null };
     }
     const posicoes = acc.outrosTOs + Math.ceil(acc.sacaTOs / SACOS_POR_POSICAO);
     let fanout = null, fanoutMax = 0;
@@ -561,9 +570,12 @@ module.exports = async (req, res) => {
     // capitalização diferente entre cluster_pulso (receiver) e a coluna
     // Cluster da config (ex: "..._PqCidade" vs "..._pqCidade"), o que fazia
     // ruas com fanout certo caírem como incorretas na comparação exata.
-    // Bug reportado pelo Roberto em 2026-08-11 (RUA 005).
-    const normaliza = s => String(s || '').trim().toLowerCase();
-    const clusterCorreto = !clusterEsperado || normaliza(fanout) === normaliza(clusterEsperado);
+    // Bug reportado pelo Roberto em 2026-08-11 (RUA 005). Mesma
+    // normalização usada pro CPT (normalizaDestino, topo do arquivo).
+    const clusterCorreto = !clusterEsperado || normalizaDestino(fanout) === normalizaDestino(clusterEsperado);
+    // Próx. CPT segue o Fanout Endereçado (pedido do Roberto em 2026-09-16),
+    // não o Cluster Ideal — é o destino que está de fato na rua agora.
+    const proximoCpt = fanout ? (CPT_POR_DESTINO.get(normalizaDestino(fanout)) || null) : null;
     return {
       rua,
       ocupadas: posicoes,

@@ -1542,18 +1542,21 @@
       padding: 4px 6px; text-align: center; white-space: nowrap;
       color: var(--text);
     }
-    .clst-table th { background: var(--surface-2-solid); font-weight: 700; }
+    .clst-table th { background: var(--surface-2-solid, var(--surface-2)); font-weight: 700; }
 
-    /* Sticky row labels (first column) */
+    /* Sticky row labels (first column) — background PRECISA ser opaco (mesma
+       razão do comentário perto de --sm-panel): sem isso, as colunas que
+       rolam por baixo aparecem coladas/misturadas no texto do rótulo fixo
+       (bug reportado pelo Roberto em 2026-09-16, "tabela da rua bugada"). */
     .clst-table th.clst-rowlabel, .clst-table td.clst-rowlabel {
       position: sticky; left: 0; z-index: 5;
-      background: var(--surface-2-solid);
+      background: var(--surface-2-solid, var(--surface-2));
       text-align: left; font-weight: 700;
       font-size: 9.5px; text-transform: uppercase; letter-spacing: .04em;
       color: var(--text-muted); min-width: 140px; max-width: 140px;
       white-space: normal; line-height: 1.3;
     }
-    .clst-table td.clst-rowlabel { background: var(--surface-solid); color: var(--text-sub); }
+    .clst-table td.clst-rowlabel { background: var(--surface-solid, var(--surface)); color: var(--text-sub); }
 
     /* Sticky header row */
     .clst-table thead th { position: sticky; top: 0; z-index: 6; }
@@ -1566,7 +1569,7 @@
     }
     .clst-rua-header {
       font-size: 8.5px; font-weight: 700; color: var(--text-muted);
-      background: var(--surface-2-solid); min-width: 42px;
+      background: var(--surface-2-solid, var(--surface-2)); min-width: 42px;
     }
 
     /* Occupation heatmap cells */

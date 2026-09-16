@@ -13,6 +13,11 @@ const { Pool } = require('pg');
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.DATABASE_URL?.includes('localhost') ? false : { rejectUnauthorized: false },
+  // Limite explícito (pedido do Roberto em 2026-09-16, brainstorm de
+  // escalabilidade multi-SoC) — sem isso o default do pg (10) fica implícito
+  // e some no meio de outras configs; melhor visível aqui, já pensando em
+  // mais SoCs + job de ingest concorrendo com o app pelas mesmas conexões.
+  max: 10,
 });
 
 module.exports = { pool };

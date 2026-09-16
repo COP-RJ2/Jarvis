@@ -1390,106 +1390,6 @@
     .jarvis-arc-sm { width: 36px; height: 36px; flex-shrink: 0; }
     .jarvis-arc-lg { width: 90px; height: 90px; }
 
-    /* ── CONFIGURAÇÕES ───────────────────────────────────────── */
-    .cfg-tabs { display: flex; gap: 2px; margin-bottom: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 4px; width: fit-content; }
-    .cfg-tab {
-      padding: 7px 18px; border-radius: var(--radius); font-size: 12px; font-weight: 600;
-      color: var(--text-muted); cursor: pointer; transition: all var(--transition);
-    }
-    .cfg-tab.active { background: var(--accent); color: #fff; box-shadow: 0 2px 8px rgba(27, 146, 245,.35); }
-    .cfg-tab:not(.active):hover { background: var(--surface-2); color: var(--text); }
-
-    .cfg-panel { display: none; }
-    .cfg-panel.active { display: block; }
-
-    /* User cards grid */
-    .user-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; margin-bottom: 20px; }
-    .user-card {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--radius-lg); padding: 18px;
-      display: flex; flex-direction: column; gap: 12px;
-      transition: border-color var(--transition), background var(--transition);
-      position: relative; overflow: hidden;
-    }
-    .user-card::before {
-      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
-      background: var(--accent); opacity: 0; transition: opacity var(--transition);
-    }
-    .user-card:hover { border-color: rgba(27, 146, 245,.3); }
-    .user-card:hover::before { opacity: 1; }
-    .user-card.inactive { opacity: .55; }
-    .user-card.inactive::before { background: var(--text-muted); opacity: 1; }
-
-    .user-card-header { display: flex; align-items: center; gap: 12px; }
-    .user-card-avatar {
-      width: 40px; height: 40px; border-radius: 50%;
-      background: linear-gradient(135deg, var(--accent), #4AA9F8);
-      color: #fff; font-size: 14px; font-weight: 700;
-      display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0;
-    }
-    .user-card.inactive .user-card-avatar { background: var(--surface-3); color: var(--text-muted); }
-    .user-card-info { flex: 1; min-width: 0; }
-    .user-card-name { font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .user-card-role { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
-
-    .user-card-email { font-size: 11px; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
-    .user-card-meta { font-size: 10.5px; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
-
-    .user-card-actions { display: flex; gap: 6px; margin-top: 4px; }
-    .uca-btn {
-      flex: 1; padding: 6px 10px; border-radius: var(--radius);
-      font-size: 11px; font-weight: 600; cursor: pointer;
-      border: 1px solid var(--border); background: var(--surface-2);
-      color: var(--text-sub); transition: all var(--transition);
-      display: flex; align-items: center; justify-content: center; gap: 5px;
-    }
-    .uca-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(27, 146, 245,.06); }
-    .uca-btn.danger:hover { border-color: var(--red); color: var(--red); background: rgba(239,68,68,.06); }
-    .uca-btn.success { border-color: rgba(16,185,129,.3); color: #34d399; background: rgba(16,185,129,.06); }
-    .uca-btn.success:hover { background: rgba(16,185,129,.12); }
-
-    /* New user form */
-    .cfg-form-card {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--radius-lg); padding: 24px; margin-bottom: 20px;
-    }
-    .cfg-form-title { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
-    .cfg-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-    .cfg-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
-    .cfg-form-group { display: flex; flex-direction: column; gap: 5px; }
-    .cfg-label { font-size: 11px; font-weight: 600; color: var(--text-muted); letter-spacing: .04em; }
-    .cfg-input {
-      background: var(--surface-2); border: 1.5px solid var(--border);
-      border-radius: var(--radius); padding: 9px 12px;
-      font-size: 13px; color: var(--text); outline: none; font-family: inherit;
-      transition: border-color var(--transition);
-    }
-    .cfg-input:focus { border-color: var(--accent); }
-    .cfg-form-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
-
-    /* Admin lock banner */
-    .admin-lock {
-      display: flex; align-items: center; gap: 10px;
-      background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.2);
-      border-radius: var(--radius); padding: 10px 14px;
-      font-size: 12px; color: #f87171; margin-bottom: 16px;
-    }
-    .admin-lock i { font-size: 14px; flex-shrink: 0; }
-
-    /* Status pill */
-    .status-pill {
-      display: inline-flex; align-items: center; gap: 4px;
-      padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 700;
-    }
-    .status-pill.active-pill { background: rgba(16,185,129,.15); color: #34d399; }
-    .status-pill.inactive-pill { background: rgba(148,151,176,.12); color: #9497b0; }
-
-    @media(max-width:768px){
-      .cfg-grid-2, .cfg-grid-3 { grid-template-columns: 1fr; }
-      .user-grid { grid-template-columns: 1fr; }
-    }
-
     /* ── AUDITORIA ───────────────────────────────────────────── */
     .audit-tabs {
       display: flex; gap: 2px; margin-bottom: 20px;
@@ -4679,16 +4579,13 @@
 
   <div class="sidebar-footer">
     <div class="sidebar-footer-row">
-      <div class="nav-item" data-section="configuracoes" data-label="Configurações" onclick="navigateTo('configuracoes',this)" style="flex:1">
-        <i class="fas fa-gear nav-icon"></i><span class="nav-label">Configurações</span>
-      </div>
-      <!-- Ícone de modo noturno TV removido daqui (pedido do Roberto em
-           2026-09-15) — ao lado do seletor "Tema Claro/Escuro" logo abaixo,
-           parecia um segundo seletor de tema duplicado. O Modo Noturno TV
+      <!-- Configurações removida daqui (pedido do Roberto em 2026-09-16) —
+           era só o CRUD de usuário/senha legado, sem uso real. Ícone de
+           modo noturno TV também já tinha saído daqui antes (2026-09-15) —
            continua acessível pelo TV Mode Config (toggleTvNight() em
-           index.html:15218), só não fica mais no rodapé da sidebar. -->
-      <div class="nav-item nav-item-icon-only" data-section="switch" data-label="Switch" title="Switch" onclick="navigateTo('switch',this)">
-        <i class="fas fa-sliders nav-icon"></i>
+           index.html:15218). -->
+      <div class="nav-item" data-section="switch" data-label="Switch" title="Switch" onclick="navigateTo('switch',this)" style="flex:1">
+        <i class="fas fa-sliders nav-icon"></i><span class="nav-label">Switch</span>
       </div>
     </div>
     <div class="theme-switch" onclick="toggleTheme()" title="Alternar tema claro/escuro">
@@ -5957,106 +5854,6 @@
     </section>
 
 
-    <!-- CONFIGURAÇÕES -->
-    <section id="section-configuracoes" class="section">
-      <div class="section-header">
-        <div class="section-header-left">
-          <div class="section-title">Configurações — Gestão de Usuários</div>
-          <div class="section-subtitle">Cadastro · Ativação · Permissões de acesso</div>
-        </div>
-        <div class="section-dl-group">
-          <div class="pdf-menu-wrap">
-            <button class="dl-btn dl-btn-pdf" onclick="togglePdfMenu('configuracoes',event)" title="Exportar PDF"><i class="fas fa-file-pdf"></i> PDF <i class="fas fa-chevron-down" style="font-size:9px;margin-left:2px"></i></button>
-            <div class="pdf-dropdown" id="pdf-menu-configuracoes">
-              <div class="pdf-dropdown-label">Formato</div>
-              <button class="pdf-dropdown-item" onclick="downloadPDF('configuracoes','corporativo')"><i class="fas fa-file-lines"></i> Corporativo A4</button>
-              <button class="pdf-dropdown-item" onclick="downloadPDF('configuracoes','dash')"><i class="fas fa-display"></i> Print Dash</button>
-            </div>
-          </div>
-          <button class="dl-btn dl-btn-csv" onclick="downloadCSV('configuracoes')" title="Download CSV"><i class="fas fa-file-csv"></i> CSV</button>
-        </div>
-      </div>
-
-      <!-- Tabs -->
-      <div class="cfg-tabs">
-        <div class="cfg-tab active" onclick="cfgTab('cadastro',this)"><i class="fas fa-user-plus"></i> Novo Usuário</div>
-        <div class="cfg-tab" onclick="cfgTab('ativos',this)"><i class="fas fa-circle-check"></i> Ativos</div>
-        <div class="cfg-tab" onclick="cfgTab('inativos',this)"><i class="fas fa-circle-xmark"></i> Inativos</div>
-        <div class="cfg-tab" onclick="cfgTab('todos',this)"><i class="fas fa-users"></i> Todos</div>
-      </div>
-
-      <!-- PANEL: Novo Usuário -->
-      <div class="cfg-panel active" id="cfg-panel-cadastro">
-        <div class="cfg-form-card">
-          <div class="cfg-form-title"><i class="fas fa-user-plus" style="color:var(--accent)"></i> Cadastrar Novo Login</div>
-          <div class="cfg-grid-2">
-            <div class="cfg-form-group">
-              <label class="cfg-label">Nome Completo *</label>
-              <input class="cfg-input" id="nu-name" type="text" placeholder="Ex: Maria Silva"/>
-            </div>
-            <div class="cfg-form-group">
-              <label class="cfg-label">E-mail *</label>
-              <input class="cfg-input" id="nu-email" type="email" placeholder="maria.silva@empresa.com"/>
-            </div>
-          </div>
-          <div class="cfg-grid-3" style="margin-top:14px">
-            <div class="cfg-form-group">
-              <label class="cfg-label">Senha *</label>
-              <input class="cfg-input" id="nu-password" type="password" placeholder="Mínimo 6 caracteres"/>
-            </div>
-            <div class="cfg-form-group">
-              <label class="cfg-label">Cargo / Função *</label>
-              <select class="cfg-input" id="nu-role">
-                <option value="">Selecione…</option>
-                <option>Administrador</option>
-                <option>Gestor</option>
-                <option>Supervisor</option>
-                <option>Analista</option>
-                <option>Operador</option>
-              </select>
-            </div>
-            <div class="cfg-form-group">
-              <label class="cfg-label">Iniciais (Avatar)</label>
-              <input class="cfg-input" id="nu-initials" type="text" maxlength="2" placeholder="Ex: MS" style="text-transform:uppercase"/>
-            </div>
-          </div>
-          <div class="cfg-form-footer">
-            <button class="btn btn-outline" onclick="clearNewUserForm()"><i class="fas fa-xmark"></i> Limpar</button>
-            <button class="btn btn-primary" onclick="createUser()"><i class="fas fa-check"></i> Cadastrar</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- PANEL: Ativos -->
-      <div class="cfg-panel" id="cfg-panel-ativos">
-        <div class="table-search" style="margin-bottom:14px;max-width:320px">
-          <i class="fas fa-search"></i>
-          <input type="text" placeholder="Pesquisar usuário ativo…" oninput="filterUserGrid(this,'grid-ativos')"/>
-        </div>
-        <div class="user-grid" id="grid-ativos"></div>
-      </div>
-
-      <!-- PANEL: Inativos -->
-      <div class="cfg-panel" id="cfg-panel-inativos">
-        <div class="table-search" style="margin-bottom:14px;max-width:320px">
-          <i class="fas fa-search"></i>
-          <input type="text" placeholder="Pesquisar usuário inativo…" oninput="filterUserGrid(this,'grid-inativos')"/>
-        </div>
-        <div class="user-grid" id="grid-inativos"></div>
-      </div>
-
-      <!-- PANEL: Todos -->
-      <div class="cfg-panel" id="cfg-panel-todos">
-        <div class="table-search" style="margin-bottom:14px;max-width:320px">
-          <i class="fas fa-search"></i>
-          <input type="text" placeholder="Pesquisar todos os usuários…" oninput="filterUserGrid(this,'grid-todos')"/>
-        </div>
-        <div class="user-grid" id="grid-todos"></div>
-      </div>
-
-    </section>
-
-
     <!-- FORECAST -->
         <section id="section-forecast" class="section">
       <div class="section-header" id="section-forecast-header">
@@ -7301,7 +7098,7 @@ const MOCK = {
 const ALL_SECTIONS = [
   'gestao','performance','spr','asm','conveyor','inbound','clusterizacao',
   'tratativas','laborplan','backlog','arvore','kpioverview','scorecard',
-  'absenteismo','forecast','auditoria','organograma','configuracoes',
+  'absenteismo','forecast','auditoria','organograma',
   'tvconfig','livesoc','matriz','mapadados','kanban','jornal','switch','justificativas'
 ];
 
@@ -7926,7 +7723,6 @@ const sectionMeta = {
   kpioverview: {title:'Overview KPIs',sub:'Painel Geral de Indicadores · KPIs'},
   scorecard:   {title:'Score Card',   sub:'Cartão de Desempenho · Gestão'},
   absenteismo: {title:'Absenteísmo',  sub:'Controle de Faltas e Ausências · Gestão'},
-  configuracoes:{title:'Configurações', sub:'Gestão de Usuários · Sistema'},
   forecast:    {title:'Forecast',      sub:'Previsão e Projeção de Volume · Gestão'},
   tvconfig:    {title:'TV Mode Config', sub:'Rotação de telas · Monitoramento'},
   livesoc:     {title:'Live SoC',       sub:'Visão ao vivo da unidade · Monitoramento'},
@@ -8039,7 +7835,7 @@ async function renderSection(section){
       conveyor:()=>loadConveyor(), inbound:()=>loadInbound(), tratativas:renderTratativas,
       laborplan:renderLaborplan, kpioverview:renderKpioverview,
       scorecard:renderScorecard, absenteismo:renderAbsenteismo,
-      configuracoes:renderConfiguracoes, forecast:()=>loadForecast(),
+      forecast:()=>loadForecast(),
       auditoria:renderAuditoria, clusterizacao:()=>pulsoRender('clusterizacao'),
       matriz:renderMatriz, mapadados:renderMapaDados, kanban:renderKanban, jornal:renderJornal,
       switch:renderSwitch, tvconfig:renderTvConfig, livesoc:renderLiveSoc,
@@ -13009,165 +12805,6 @@ function renderScorecard(){
 
 function renderAbsenteismo(){
   setBadge('absenteismo','ok','Em Construção');
-}
-
-/* ================================================================
-   CONFIGURAÇÕES — USER MANAGEMENT
-================================================================ */
-
-function renderConfiguracoes(){
-  // OPTIMIZATION 5: expose history on render
-  const histContainer = document.getElementById('edit-history-list');
-  if(histContainer){
-    const log = EditHistory.get();
-    if(!log.length){
-      histContainer.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:16px">Nenhuma atividade registrada ainda.</div>';
-    } else {
-      histContainer.innerHTML = log.slice(0,50).map(e => `
-        <div style="display:flex;gap:12px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border)">
-          <span style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text-muted);min-width:130px;flex-shrink:0">${new Date(e.ts).toLocaleString('pt-BR')}</span>
-          <span style="font-size:11px;font-weight:700;color:var(--accent);min-width:60px">${e.user}</span>
-          <span style="font-size:11px;color:var(--text-muted)">${e.action} <strong style="color:var(--text)">${e.section}</strong>${e.detail?' — '+e.detail:''}</span>
-        </div>`).join('');
-    }
-  }
-  
-  renderUserGrids();
-}
-
-function cfgTab(id, el){
-  document.querySelectorAll('.cfg-tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.cfg-panel').forEach(p => p.classList.remove('active'));
-  el.classList.add('active');
-  document.getElementById('cfg-panel-' + id).classList.add('active');
-  if(id !== 'cadastro') renderUserGrids();
-}
-
-function renderUserGrids(){
-  const isAdmin = currentUser && (currentUser.role === 'Administrador' || currentUser.role === 'Administradora');
-  const sort = arr => [...arr].sort((a,b) => a.name.localeCompare(b.name, 'pt-BR'));
-  renderGrid('grid-ativos',   sort(USERS.filter(u => u.active)),  isAdmin);
-  renderGrid('grid-inativos', sort(USERS.filter(u => !u.active)), isAdmin);
-  renderGrid('grid-todos',    sort(USERS),                         isAdmin);
-}
-
-function filterUserGrid(input, gridId){
-  const q = input.value.toLowerCase().trim();
-  const grid = document.getElementById(gridId);
-  if(!grid) return;
-  grid.querySelectorAll('.user-card').forEach(card => {
-    const name  = card.querySelector('.user-card-name')?.textContent.toLowerCase() || '';
-    const email = card.querySelector('.user-card-email')?.textContent.toLowerCase() || '';
-    const role  = card.querySelector('.user-card-role')?.textContent.toLowerCase() || '';
-    card.style.display = (!q || name.includes(q) || email.includes(q) || role.includes(q)) ? '' : 'none';
-  });
-}
-
-function renderGrid(containerId, users, isAdmin){
-  const el = document.getElementById(containerId);
-  if(!el) return;
-  if(!users.length){
-    el.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:20px">Nenhum usuário encontrado.</div>';
-    return;
-  }
-  el.innerHTML = users.map((u, idx) => {
-    const globalIdx = USERS.indexOf(u);
-    const statusPill = u.active
-      ? '<span class="status-pill active-pill"><i class="fas fa-circle" style="font-size:6px"></i> Ativo</span>'
-      : '<span class="status-pill inactive-pill"><i class="fas fa-circle" style="font-size:6px"></i> Inativo</span>';
-    const toggleBtn = u.active
-      ? `<button class="uca-btn" onclick="toggleUser(${globalIdx})" title="Desativar"><i class="fas fa-toggle-on"></i> Desativar</button>`
-      : `<button class="uca-btn success" onclick="toggleUser(${globalIdx})" title="Ativar"><i class="fas fa-toggle-off"></i> Ativar</button>`;
-    const deleteBtn = isAdmin && u.email !== 'admin@jarvis_rj2.com'
-      ? `<button class="uca-btn danger" onclick="deleteUser(${globalIdx})" title="Excluir"><i class="fas fa-trash"></i></button>`
-      : `<button class="uca-btn" style="opacity:.3;cursor:not-allowed" title="${u.email === 'admin@jarvis_rj2.com' ? 'Admin não pode ser excluído' : 'Somente admins podem excluir'}" disabled><i class="fas fa-lock"></i></button>`;
-    return `
-      <div class="user-card ${u.active ? '' : 'inactive'}" id="ucard-${globalIdx}">
-        <div class="user-card-header">
-          <div class="user-card-avatar">${u.initials}</div>
-          <div class="user-card-info">
-            <div class="user-card-name">${u.name}</div>
-            <div class="user-card-role">${u.role} ${statusPill}</div>
-          </div>
-        </div>
-        <div class="user-card-email"><i class="fas fa-envelope" style="font-size:10px"></i> ${u.email}</div>
-        <div class="user-card-meta"><i class="fas fa-user-gear" style="font-size:10px"></i> Criado por: <strong>${u.createdBy}</strong> em ${u.createdAt}</div>
-        <div class="user-card-actions">
-          ${toggleBtn}
-          ${deleteBtn}
-        </div>
-      </div>`;
-  }).join('');
-}
-
-function toggleUser(idx){
-  const u = USERS[idx];
-  if(!u) return;
-  // Prevent deactivating own account
-  if(currentUser && u.email === currentUser.email){
-    showToast('Você não pode desativar sua própria conta.', true); return;
-  }
-  u.active = !u.active;
-  renderUserGrids();
-  showToast(u.active ? `✓ ${u.name} ativado(a) com sucesso.` : `${u.name} desativado(a).`, !u.active);
-}
-
-function deleteUser(idx){
-  const u = USERS[idx];
-  if(!u) return;
-  const isAdmin = currentUser && (currentUser.role === 'Administrador' || currentUser.role === 'Administradora');
-  if(!isAdmin){ showToast('Somente administradores podem excluir usuários.', true); return; }
-  if(u.email === 'admin@jarvis_rj2.com'){ showToast('O usuário admin não pode ser excluído.', true); return; }
-  if(currentUser && u.email === currentUser.email){ showToast('Você não pode excluir sua própria conta.', true); return; }
-  // Confirm
-  const card = document.getElementById('ucard-' + idx);
-  if(card) card.style.outline = '2px solid var(--red)';
-  const confirmed = confirm(`Excluir permanentemente o usuário "${u.name}" (${u.email})?\nEsta ação não pode ser desfeita.`);
-  if(!confirmed){ if(card) card.style.outline = ''; return; }
-  USERS.splice(idx, 1);
-  renderUserGrids();
-  showToast(`Usuário ${u.name} excluído.`, false);
-}
-
-function createUser(){
-  const name     = document.getElementById('nu-name').value.trim();
-  const email    = document.getElementById('nu-email').value.trim().toLowerCase();
-  const password = document.getElementById('nu-password').value;
-  const role     = document.getElementById('nu-role').value;
-  const initials = document.getElementById('nu-initials').value.trim().toUpperCase() ||
-                   name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
-
-  if(!name || !email || !password || !role){
-    showToast('Preencha todos os campos obrigatórios.', true); return;
-  }
-  if(password.length < 6){
-    showToast('A senha deve ter ao menos 6 caracteres.', true); return;
-  }
-  if(USERS.find(u => u.email === email)){
-    showToast('Já existe um usuário com este e-mail.', true); return;
-  }
-
-  const today = new Date();
-  const dateStr = String(today.getDate()).padStart(2,'0') + '/' +
-                  String(today.getMonth()+1).padStart(2,'0') + '/' + today.getFullYear();
-  USERS.push({
-    email, password, name, initials, role,
-    active: true,
-    createdBy: currentUser ? currentUser.name : 'Sistema',
-    createdAt: dateStr
-  });
-  clearNewUserForm();
-  showToast('✓ Usuário ' + name + ' cadastrado com sucesso!');
-  // Switch to Ativos tab
-  const tabs = document.querySelectorAll('.cfg-tab');
-  cfgTab('ativos', tabs[1]);
-}
-
-function clearNewUserForm(){
-  ['nu-name','nu-email','nu-password','nu-role','nu-initials'].forEach(id => {
-    const el = document.getElementById(id);
-    if(el) el.value = '';
-  });
 }
 
 /* ================================================================

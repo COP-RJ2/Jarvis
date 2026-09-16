@@ -313,6 +313,35 @@ function justResumo(linhas) {
     pctJustificada: perdaTotal ? +(justificada / perdaTotal * 100).toFixed(1) : null,
   };
 }
+// Mesma janela T1 06-13h/T2 14-21h/T3 22-05h usada em todo o PULSO (ver
+// turnoDeHora em api/asm.js) — duplicada aqui pelo mesmo motivo de lá.
+function turnoDeHoraJust(hora) {
+  if (hora === null || isNaN(hora)) return null;
+  if (hora >= 6 && hora <= 13) return 'T1';
+  if (hora >= 14 && hora <= 21) return 'T2';
+  return 'T3';
+}
+
+// % Aderência ao Preenchimento por área × turno (pedido do Roberto em
+// 2026-09-16): dentre as horas que perderam capacidade (precisavam de
+// justificativa), quantas já foram preenchidas vs quantas ainda estão
+// pendentes — quebrado por área e turno pra identificar quem está devendo.
+// Ordenado do pior aderência pro melhor (prioriza o que precisa de atenção).
+function justAderenciaPorAreaTurno(linhas) {
+  const porChave = new Map();
+  linhas.filter(l => l.perda > 0).forEach(l => {
+    const turno = turnoDeHoraJust(l.hora);
+    const chave = `${l.area}|${turno}`;
+    if (!porChave.has(chave)) porChave.set(chave, { area: l.area, turno, pendencias: 0, justificadas: 0 });
+    const acc = porChave.get(chave);
+    if (l.reason) acc.justificadas++; else acc.pendencias++;
+  });
+  return [...porChave.values()].map(a => {
+    const total = a.pendencias + a.justificadas;
+    return { ...a, total, pctAderencia: total ? +(a.justificadas / total * 100).toFixed(1) : null };
+  }).sort((a, b) => (a.pctAderencia ?? -1) - (b.pctAderencia ?? -1));
+}
+
 // Motivo (ou "(Pendente)") com maior perda dentro de uma lista de linhas.
 function justPrincipal(linhas) {
   const porMotivo = new Map();
@@ -491,6 +520,7 @@ async function buildJustificativas(req, res) {
       areas: JUST_AREAS,
       resumo: justResumo(linhas),
       porSemana, porMes, porJustificativa, porCanalGrupo, tabela,
+      aderenciaAreaTurno: justAderenciaPorAreaTurno(linhas),
       // Compat com a versão anterior da tela (pendências "de hoje" + KPIs
       // simples) — Overview usa só `resumo`/`porJustificativa` agora, mas o
       // botão antigo ainda pode apontar aqui até o front terminar de migrar.

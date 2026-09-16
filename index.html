@@ -5692,68 +5692,106 @@
 
       <div id="just-kpis" style="margin-top:12px"></div>
 
-      <!-- Granularidade Hora / Dia / Semana -->
-      <div class="table-card" style="margin-top:16px">
+      <!-- Tendência (pedido do Roberto em 2026-09-16) -->
+      <div class="chart-card" style="margin-top:16px">
         <div class="table-toolbar">
-          <div class="table-toolbar-title">Detalhamento <span id="just-tabela-sub" style="font-weight:400;color:var(--text-muted);font-size:12px"></span></div>
-          <div class="bkl-tabs">
-            <div class="bkl-tab" id="just-gran-hora" onclick="justSetGranularidade('hora')">Hora</div>
-            <div class="bkl-tab active" id="just-gran-dia" onclick="justSetGranularidade('dia')">Dia</div>
-            <div class="bkl-tab" id="just-gran-semana" onclick="justSetGranularidade('semana')">Semana</div>
+          <div class="table-toolbar-title">Tendência de Perda por Semana</div>
+        </div>
+        <div style="padding:8px 16px 16px"><canvas id="just-trend-chart" height="70"></canvas></div>
+      </div>
+
+      <!-- Abas (pedido do Roberto em 2026-09-16) — antes eram 4 tabelas
+           empilhadas, viraram abas pra não forçar rolagem longa. -->
+      <div class="table-card" style="margin-top:16px">
+        <div class="jornal-tabs" style="margin:16px 0 0 16px">
+          <div class="jornal-tab active" onclick="justSetView('detalhe',this)"><i class="fas fa-table-list"></i> Detalhamento</div>
+          <div class="jornal-tab" onclick="justSetView('semana',this)"><i class="fas fa-calendar-week"></i> Por Semana</div>
+          <div class="jornal-tab" onclick="justSetView('mes',this)"><i class="fas fa-calendar-days"></i> Por Mês e Motivo</div>
+          <div class="jornal-tab" onclick="justSetView('motivo',this)"><i class="fas fa-ranking-star"></i> Impacto por Justificativa</div>
+          <div class="jornal-tab" onclick="justSetView('aderencia',this)"><i class="fas fa-clipboard-check"></i> Aderência por Área/Turno</div>
+        </div>
+
+        <!-- Detalhamento (granularidade Hora/Dia/Semana) -->
+        <div class="jornal-panel active" id="just-view-detalhe">
+          <div class="table-toolbar">
+            <div class="table-toolbar-title">Detalhamento <span id="just-tabela-sub" style="font-weight:400;color:var(--text-muted);font-size:12px"></span></div>
+            <div class="bkl-tabs">
+              <div class="bkl-tab" id="just-gran-hora" onclick="justSetGranularidade('hora')">Hora</div>
+              <div class="bkl-tab active" id="just-gran-dia" onclick="justSetGranularidade('dia')">Dia</div>
+              <div class="bkl-tab" id="just-gran-semana" onclick="justSetGranularidade('semana')">Semana</div>
+            </div>
+            <button class="dl-btn dl-btn-csv" onclick="justExportTabelaCsv()" title="Exportar CSV"><i class="fas fa-file-csv"></i> CSV</button>
           </div>
-          <button class="dl-btn dl-btn-csv" onclick="justExportTabelaCsv()" title="Exportar CSV"><i class="fas fa-file-csv"></i> CSV</button>
+          <div style="overflow-x:auto">
+            <table class="resp-table" style="min-width:900px">
+              <thead id="just-tabela-thead"></thead>
+              <tbody id="just-tabela-tbody"></tbody>
+            </table>
+          </div>
         </div>
-        <div style="overflow-x:auto">
-          <table class="resp-table" style="min-width:900px">
-            <thead id="just-tabela-thead"></thead>
-            <tbody id="just-tabela-tbody"></tbody>
-          </table>
-        </div>
-      </div>
 
-      <!-- Visão semanal (item 2) -->
-      <div class="table-card" style="margin-top:16px">
-        <div class="table-toolbar">
-          <div class="table-toolbar-title">Perda por Semana</div>
-          <button class="dl-btn dl-btn-csv" onclick="justExportSemanaCsv()" title="Exportar CSV"><i class="fas fa-file-csv"></i> CSV</button>
+        <!-- Visão semanal (item 2) -->
+        <div class="jornal-panel" id="just-view-semana">
+          <div class="table-toolbar">
+            <div class="table-toolbar-title">Perda por Semana</div>
+            <button class="dl-btn dl-btn-csv" onclick="justExportSemanaCsv()" title="Exportar CSV"><i class="fas fa-file-csv"></i> CSV</button>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="resp-table" style="min-width:900px">
+              <thead><tr>
+                <th>Semana</th><th>Capacidade Perdida</th><th>Justificada</th><th>Pendente</th><th>% Justificada</th><th>Principal Justificativa</th>
+              </tr></thead>
+              <tbody id="just-semana-tbody"></tbody>
+            </table>
+          </div>
         </div>
-        <div style="overflow-x:auto">
-          <table class="resp-table" style="min-width:900px">
-            <thead><tr>
-              <th>Semana</th><th>Capacidade Perdida</th><th>Justificada</th><th>Pendente</th><th>% Justificada</th><th>Principal Justificativa</th>
-            </tr></thead>
-            <tbody id="just-semana-tbody"></tbody>
-          </table>
-        </div>
-      </div>
 
-      <!-- Visão mensal (item 3) — mês x motivo -->
-      <div class="table-card" style="margin-top:16px">
-        <div class="table-toolbar">
-          <div class="table-toolbar-title">Perda por Mês e Motivo</div>
-          <button class="dl-btn dl-btn-csv" onclick="justExportMesCsv()" title="Exportar CSV"><i class="fas fa-file-csv"></i> CSV</button>
+        <!-- Visão mensal (item 3) — mês x motivo -->
+        <div class="jornal-panel" id="just-view-mes">
+          <div class="table-toolbar">
+            <div class="table-toolbar-title">Perda por Mês e Motivo</div>
+            <button class="dl-btn dl-btn-csv" onclick="justExportMesCsv()" title="Exportar CSV"><i class="fas fa-file-csv"></i> CSV</button>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="resp-table" style="min-width:900px">
+              <thead id="just-mes-thead"></thead>
+              <tbody id="just-mes-tbody"></tbody>
+            </table>
+          </div>
         </div>
-        <div style="overflow-x:auto">
-          <table class="resp-table" style="min-width:900px">
-            <thead id="just-mes-thead"></thead>
-            <tbody id="just-mes-tbody"></tbody>
-          </table>
-        </div>
-      </div>
 
-      <!-- Impacto por justificativa (item 6) -->
-      <div class="table-card" style="margin-top:16px">
-        <div class="table-toolbar">
-          <div class="table-toolbar-title">Impacto por Justificativa</div>
-          <button class="dl-btn dl-btn-csv" onclick="justExportMotivoCsv()" title="Exportar CSV"><i class="fas fa-file-csv"></i> CSV</button>
+        <!-- Impacto por justificativa (item 6) -->
+        <div class="jornal-panel" id="just-view-motivo">
+          <div class="table-toolbar">
+            <div class="table-toolbar-title">Impacto por Justificativa</div>
+            <button class="dl-btn dl-btn-csv" onclick="justExportMotivoCsv()" title="Exportar CSV"><i class="fas fa-file-csv"></i> CSV</button>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="resp-table" style="min-width:900px">
+              <thead><tr>
+                <th>Justificativa</th><th>Perda</th><th>% Total</th><th>Ocorrências</th><th>Canal Mais Impactado</th><th>Período de Maior Impacto</th>
+              </tr></thead>
+              <tbody id="just-motivo-tbody"></tbody>
+            </table>
+          </div>
         </div>
-        <div style="overflow-x:auto">
-          <table class="resp-table" style="min-width:900px">
-            <thead><tr>
-              <th>Justificativa</th><th>Perda</th><th>% Total</th><th>Ocorrências</th><th>Canal Mais Impactado</th><th>Período de Maior Impacto</th>
-            </tr></thead>
-            <tbody id="just-motivo-tbody"></tbody>
-          </table>
+
+        <!-- Aderência ao preenchimento por área/turno (pedido do Roberto em
+             2026-09-16) — quem está devendo justificativa, quebrado por
+             turno, pra cobrar a área certa. -->
+        <div class="jornal-panel" id="just-view-aderencia">
+          <div class="table-toolbar">
+            <div class="table-toolbar-title">Aderência ao Preenchimento por Área e Turno</div>
+            <button class="dl-btn dl-btn-csv" onclick="justExportAderenciaCsv()" title="Exportar CSV"><i class="fas fa-file-csv"></i> CSV</button>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="resp-table" style="min-width:700px">
+              <thead><tr>
+                <th>Área</th><th>Turno</th><th>Pendências</th><th>Justificadas</th><th>% Aderência</th>
+              </tr></thead>
+              <tbody id="just-aderencia-tbody"></tbody>
+            </table>
+          </div>
         </div>
       </div>
     </section>
@@ -18986,13 +19024,18 @@ function justRenderAll(){
     { label:'Lost Capacity', value:r.perdaTotal.toLocaleString('pt-BR'), sub:'no período/filtro selecionado', delta:'', trend:'up', type:'', icon:'fa-battery-quarter' },
     { label:'Pending Justifications', value:r.pendente.toLocaleString('pt-BR'), delta:'', trend:'up', type: r.pendente?'danger':'success', icon:'fa-clipboard-question' },
     { label:'Justified', value:r.justificada.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-clipboard-check' },
-    { label:'Justified vs. Pending', value: r.pctJustificada===null?'—':r.pctJustificada+'%', sub:'% já justificado', delta:'', trend:'up', type: r.pctJustificada===null?'':(r.pctJustificada>=80?'success':(r.pctJustificada>=50?'warning':'danger')), icon:'fa-scale-balanced' },
+    // Renomeado de "Justified vs. Pending" (pedido do Roberto em
+    // 2026-09-16) — mesma conta de sempre, nome mais direto do que ela
+    // representa: quanto da perda já tem motivo preenchido.
+    { label:'% Aderência ao Preenchimento', value: r.pctJustificada===null?'—':r.pctJustificada+'%', sub:'% da perda já justificada', delta:'', trend:'up', type: r.pctJustificada===null?'':(r.pctJustificada>=80?'success':(r.pctJustificada>=50?'warning':'danger')), icon:'fa-scale-balanced' },
   ]);
 
   justRenderTabela();
   justRenderSemana();
   justRenderMes();
   justRenderMotivo();
+  justRenderAderencia();
+  justRenderTrendChart();
 }
 
 // Item 5: Hora mostra cada canal/hora individual (com botão Justificar nas
@@ -19019,7 +19062,7 @@ function justRenderTabela(){
         <td>${rw.realizado.toLocaleString('pt-BR')}</td>
         <td style="${rw.perda>0?'color:var(--red)':''}">${rw.perda.toLocaleString('pt-BR')}</td>
         <td>${pulsoEscHtml(rw.reason||'—')}</td>
-        <td>${pulsoEscHtml(rw.status)}</td>
+        <td><span class="ds-badge ${rw.status==='Pendente'?'error':'ok'}">${pulsoEscHtml(rw.status)}</span></td>
         <td>${rw.status==='Pendente' ? `<button type="button" class="spr-ms-action-btn" onclick='justOpenForm(${JSON.stringify({dataBr:rw.dataBr,data:rw.data,hora:rw.hora,area:rw.area,meta:rw.meta,realizado:rw.realizado,gap:rw.realizado-rw.meta})})'>Justificar</button>` : ''}</td>
       </tr>`).join('') : emptyRow(9);
   } else if(g === 'semana'){
@@ -19078,11 +19121,49 @@ function justRenderMotivo(){
     <tr>
       <td>${pulsoEscHtml(m.motivo)}</td>
       <td style="color:var(--red)">${m.perda.toLocaleString('pt-BR')}</td>
-      <td>${m.pctTotal}%</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px;min-width:110px">
+          <div style="flex:1;height:6px;border-radius:3px;background:var(--surface-3);overflow:hidden">
+            <div style="width:${Math.min(100,m.pctTotal)}%;height:100%;background:var(--accent)"></div>
+          </div>
+          <span style="font-size:11px;color:var(--text-muted);flex-shrink:0">${m.pctTotal}%</span>
+        </div>
+      </td>
       <td>${m.ocorrencias.toLocaleString('pt-BR')}</td>
       <td>${pulsoEscHtml(m.canalMaisImpactado||'—')}</td>
       <td>${pulsoEscHtml(m.periodoMaiorImpacto||'—')}</td>
     </tr>`).join('') : emptyRow(6);
+}
+
+function justRenderAderencia(){
+  const tbody = document.getElementById('just-aderencia-tbody');
+  if(!tbody) return;
+  const rows = JUST_DATA.aderenciaAreaTurno || [];
+  tbody.innerHTML = rows.length ? rows.map(a => `
+    <tr>
+      <td>${pulsoEscHtml(a.area)}</td>
+      <td>${pulsoEscHtml(a.turno||'—')}</td>
+      <td style="${a.pendencias>0?'color:var(--red)':''}">${a.pendencias.toLocaleString('pt-BR')}</td>
+      <td>${a.justificadas.toLocaleString('pt-BR')}</td>
+      <td><span class="ds-badge ${a.pctAderencia===null?'loading':a.pctAderencia>=80?'ok':a.pctAderencia>=50?'loading':'error'}">${a.pctAderencia===null?'—':a.pctAderencia+'%'}</span></td>
+    </tr>`).join('') : emptyRow(5);
+}
+
+// Abas de visão (pedido do Roberto em 2026-09-16) — antes eram 4 tabelas
+// empilhadas; agora só a aba ativa fica visível.
+function justSetView(view, el){
+  document.querySelectorAll('#section-justificativas .jornal-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('#section-justificativas .jornal-panel').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('just-view-'+view)?.classList.add('active');
+}
+
+function justRenderTrendChart(){
+  const rows = JUST_DATA.porSemana || [];
+  if(chartInstances['just-trend-chart']){ chartInstances['just-trend-chart'].destroy(); delete chartInstances['just-trend-chart']; }
+  mkBar('just-trend-chart', rows.map(r => r.semana), [
+    { label:'Perda de Capacidade', data: rows.map(r => r.capacidadePerdida), backgroundColor:'#1B92F5' },
+  ]);
 }
 
 function justExportTabelaCsv(){
@@ -19124,6 +19205,15 @@ function justExportMotivoCsv(){
   pulsoExportRowsCsv('justificativas_impacto_por_motivo.csv', [
     {key:'motivo',label:'Justificativa'},{key:'perda',label:'Perda'},{key:'pctTotal',label:'% Total'},{key:'ocorrencias',label:'Ocorrências'},
     {key:'canalMaisImpactado',label:'Canal Mais Impactado'},{key:'periodoMaiorImpacto',label:'Período de Maior Impacto'},
+  ], rows);
+}
+
+function justExportAderenciaCsv(){
+  const rows = JUST_DATA?.aderenciaAreaTurno || [];
+  if(!rows.length){ showToast('Nada pra exportar com os filtros atuais.', true); return; }
+  pulsoExportRowsCsv('justificativas_aderencia_area_turno.csv', [
+    {key:'area',label:'Área'},{key:'turno',label:'Turno'},{key:'pendencias',label:'Pendências'},
+    {key:'justificadas',label:'Justificadas'},{key:'pctAderencia',label:'% Aderência'},
   ], rows);
 }
 

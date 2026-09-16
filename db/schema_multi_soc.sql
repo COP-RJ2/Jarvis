@@ -422,3 +422,14 @@ CREATE TABLE IF NOT EXISTS arvore_valores (
   PRIMARY KEY (soc, kpi_id, periodo),
   FOREIGN KEY (soc, kpi_id) REFERENCES de_para_arvore_kpis (soc, kpi_id)
 );
+
+
+-- ============================================================================
+-- 4. CONTEÚDO/CRUD — Kanban de Demandas, Mapa de Dados, Jornal (pedido do
+--    Roberto em 2026-09-16). Diferente das seções acima: não é de-para nem
+--    fato/snapshot — é conteúdo direto, 1 linha = 1 item. Ver
+--    db/migracao_kanban_mapadados_jornal.sql para o DDL completo (Kanban
+--    normalizado em 3 tabelas, Mapa de Dados 1 tabela, Jornal em 4 —
+--    edições com PDF em bytea, aniversariantes/avisos/campanhas). Todas
+--    com soc.
+-- ============================================================================

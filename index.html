@@ -1365,6 +1365,13 @@
     .user-menu-info { padding: 14px 16px; border-bottom: 1px solid var(--border); }
     .user-menu-name { font-size: 13px; font-weight: 600; color: var(--text); }
     .user-menu-email { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+    .user-menu-workloc {
+      font-size: 10.5px; color: var(--accent); margin-top: 6px;
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 2px 8px; border-radius: var(--radius-pill);
+      background: var(--accent-soft); font-weight: 500;
+    }
+    .user-menu-workloc.hidden { display: none; }
     .user-menu-item {
       display: flex; align-items: center; gap: 10px;
       padding: 11px 16px; font-size: 12px; font-weight: 500;
@@ -3052,7 +3059,9 @@
     [data-theme="dark"] #sidebar { background: var(--spark-gradient); }
 
     .sidebar-logo { border-bottom: 1px solid var(--rail-line); padding: 13px 16px; }
-    .logo-text { color: #FFFFFF; font-size: 14px; font-weight: 600; letter-spacing: .06em; }
+    .logo-text { color: #FFFFFF; font-size: 14px; font-weight: 600; letter-spacing: .06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .logo-workloc { color: rgba(255,255,255,.55); font-weight: 500; font-size: 12px; letter-spacing: normal; }
+    #sidebar.collapsed .logo-workloc { display: none; }
     #sidebar.collapsed .sidebar-logo { justify-content: center; padding: 13px 0; }
 
     .nav-group-label { color: rgba(255,255,255,.32); letter-spacing: .1em; font-size: 9.5px; }
@@ -4495,6 +4504,7 @@
   <div class="user-menu-info">
     <div class="user-menu-name" id="um-name">—</div>
     <div class="user-menu-email" id="um-email">—</div>
+    <div class="user-menu-workloc hidden" id="um-workloc"><i class="fas fa-location-dot"></i> <span id="um-workloc-text"></span></div>
   </div>
   <div class="user-menu-item" onclick="closeUserMenu()">
     <i class="fas fa-user-gear"></i> Meu Perfil
@@ -4517,7 +4527,7 @@
        removido de propósito — era só uma referência de teste, não ficou
        bom como logo de verdade. -->
   <div class="sidebar-logo">
-    <span class="logo-text">JARVIS</span>
+    <span class="logo-text">JARVIS<span class="logo-workloc" id="sidebar-workloc"></span></span>
   </div>
 
   <div class="sidebar-nav">
@@ -7381,6 +7391,20 @@ function applyUser(user){
   // mais distinção de papel por login, então o selo só poluía o menu.
   if(un) un.textContent = user.name;
   if(ue) ue.textContent = user.email;
+
+  // Work location (pedido do Roberto em 2026-09-15) — mostra ao lado do
+  // logo "JARVIS - RJ2" e no menu de perfil, quando disponível (vem do
+  // custom field da SeaTalk ou do fallback da tabela work_locations).
+  const wlSidebar = document.getElementById('sidebar-workloc');
+  const wlMenu = document.getElementById('um-workloc'), wlMenuText = document.getElementById('um-workloc-text');
+  if(user.workLocation){
+    if(wlSidebar) wlSidebar.textContent = ' - ' + user.workLocation;
+    if(wlMenuText) wlMenuText.textContent = user.workLocation;
+    if(wlMenu) wlMenu.classList.remove('hidden');
+  } else {
+    if(wlSidebar) wlSidebar.textContent = '';
+    if(wlMenu) wlMenu.classList.add('hidden');
+  }
 }
 
 // 2 métodos de login (pedido do Roberto em 2026-09-14): e-mail + código por

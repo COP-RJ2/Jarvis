@@ -88,7 +88,7 @@ async function enviarMensagemDireta(employeeCode, texto) {
 // procura pelo nome exato "Work Location" (confirmado no exemplo oficial da
 // doc) e devolve o `value`. null se o employee não tiver esse custom field
 // preenchido, ou se a permissão "Get Contact Profile" ainda não tiver sido
-// aprovada (deixa o chamador cair pro fallback da tabela work_locations).
+// aprovada (deixa o chamador cair pro fallback da tabela de_para_work_locations).
 async function buscarWorkLocationSeaTalk(employeeCode) {
   const token = await getAppAccessToken();
   const r = await fetch(`${HOST}/contacts/v2/profile?employee_code=${encodeURIComponent(employeeCode)}`, {

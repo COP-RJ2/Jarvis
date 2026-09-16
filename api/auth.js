@@ -30,7 +30,7 @@ const { resolverEmployeeCodePorEmail, enviarMensagemDireta, trocarCodePorEmploye
 // "Work Location" — precisa da permissão "Get Contact Profile" aprovada no
 // console, ainda não confirmado); se falhar por qualquer motivo (permissão
 // pendente, employee_code ausente, etc.), cai pro de-para manual da tabela
-// work_locations. Nunca deixa o login quebrar por causa disso.
+// de_para_work_locations. Nunca deixa o login quebrar por causa disso.
 async function resolverWorkLocation(employeeCode, email) {
   if (employeeCode) {
     try {

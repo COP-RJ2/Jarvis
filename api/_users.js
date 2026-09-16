@@ -17,8 +17,10 @@
  * o code2employee só traz employee_code/email/mobile/name/avatar, e não
  * existe doc de leitura pro custom field "Work Location"). Em vez de
  * depender da SeaTalk, guarda o de-para e-mail→work location numa tabela
- * própria no Postgres, mantida à mão — sem regra de acesso associada ainda
- * (só captura o dado por enquanto, pra usar depois).
+ * própria no Postgres (de_para_work_locations, nome ajustado em 2026-09-16
+ * pra ficar no mesmo padrão de identificação dos outros de-para), mantida
+ * à mão — sem regra de acesso associada ainda (só captura o dado por
+ * enquanto, pra usar depois).
  */
 const { pool } = require('../db');
 
@@ -26,7 +28,7 @@ const DOMINIOS_PERMITIDOS = ['@shopee.com', '@shopeemobile-external.com'];
 
 async function garantirTabelaWorkLocations() {
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS work_locations (
+    CREATE TABLE IF NOT EXISTS de_para_work_locations (
       email text PRIMARY KEY,
       nome text,
       work_location text NOT NULL,
@@ -39,7 +41,7 @@ async function buscarWorkLocation(email) {
   const e = String(email || '').trim().toLowerCase();
   if (!e) return null;
   await garantirTabelaWorkLocations();
-  const { rows } = await pool.query('SELECT work_location FROM work_locations WHERE email = $1', [e]);
+  const { rows } = await pool.query('SELECT work_location FROM de_para_work_locations WHERE email = $1', [e]);
   return rows[0] ? rows[0].work_location : null;
 }
 

@@ -4673,6 +4673,14 @@
       <div class="nav-item" data-section="kpioverview" data-label="Overview KPIs" onclick="navigateTo('kpioverview',this)">
         <span class="nav-icon-composite"><i class="fas fa-gauge-simple-high icon-base" style="font-size:14px"></i><span class="icon-badge" style="font-size:6px;padding:0 1.5px">KPI</span></span><span class="nav-label">Overview KPIs</span>
       </div>
+      <!-- Packed on Time (pedido do Roberto em 2026-09-16) — mesmo padrão da
+           Árvore de KPI's: página dedicada, estática, com layout/design
+           próprios (fonte, cores, gráficos) que não fazem parte do sistema
+           visual do JARVIS — abrir dentro de uma section/iframe brigaria com
+           o CSS do resto do site. -->
+      <div class="nav-item" data-section="packedontime" data-label="Packed on Time" onclick="window.location.href='/indicadores/packed-on-time.html'">
+        <i class="fas fa-stopwatch nav-icon"></i><span class="nav-label">Packed on Time</span>
+      </div>
     </div>
 
     <div class="nav-group">
@@ -7279,7 +7287,7 @@ const MOCK = {
 ================================================================ */
 const ALL_SECTIONS = [
   'gestao','performance','spr','asm','conveyor','inbound','clusterizacao',
-  'tratativas','laborplan','backlog','arvore','kpioverview','scorecard',
+  'tratativas','laborplan','backlog','arvore','kpioverview','packedontime','scorecard',
   'absenteismo','forecast','auditoria','organograma',
   'tvconfig','livesoc','matriz','mapadados','kanban','jornal','switch','justificativas'
 ];

@@ -26,6 +26,19 @@ const { pool } = require('../db');
 
 const DOMINIOS_PERMITIDOS = ['@shopee.com', '@shopeemobile-external.com'];
 
+// SoC que a pessoa escolhe depois do login (pedido do Roberto em
+// 2026-09-21) — lista fixa por enquanto, sem regra de acesso por work
+// location ainda (nenhum de-para work_location->soc existe hoje). Hoje só
+// o SoC RJ2 tem dado de verdade por trás (todo o resto do backend ainda lê
+// a planilha/Postgres fixos em RJ2) — os outros aparecem como opção mas
+// caem no mesmo "Em Construção" que outras páginas já usam.
+const SOCS = [
+  { soc: 'RJ2', nome: 'RJ2' },
+  { soc: 'RJ6', nome: 'RJ6' },
+  { soc: 'SC1', nome: 'SC1' },
+  { soc: 'SC2', nome: 'SC2' },
+];
+
 async function garantirTabelaWorkLocations() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS de_para_work_locations (
@@ -71,4 +84,4 @@ function usuarioDoEmail(email) {
   };
 }
 
-module.exports = { emailPermitido, nomeDoEmail, usuarioDoEmail, buscarWorkLocation, DOMINIOS_PERMITIDOS };
+module.exports = { emailPermitido, nomeDoEmail, usuarioDoEmail, buscarWorkLocation, DOMINIOS_PERMITIDOS, SOCS };

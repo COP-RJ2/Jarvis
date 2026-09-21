@@ -4481,6 +4481,14 @@
         </button>
       </div>
 
+      <!-- Etapa 3: escolha do SoC (pedido do Roberto em 2026-09-21) — roda
+           depois da sessão já aberta (DM ou QR), antes de entrar no portal. -->
+      <div id="login-step-soc" style="display:none">
+        <div class="login-form-title">Qual SoC você quer ver?</div>
+        <div class="login-form-sub">Escolha o centro de distribuição pra continuar</div>
+        <div id="login-soc-list" class="login-field"></div>
+      </div>
+
       <div class="login-footer">
         JARVIS v1.0 · COP RJ2 2026 · Acesso restrito
       </div>
@@ -4529,6 +4537,9 @@
   <div class="user-menu-item" onclick="closeUserMenu()">
     <i class="fas fa-user-gear"></i> Meu Perfil
   </div>
+  <div class="user-menu-item" onclick="authTrocarSoc()">
+    <i class="fas fa-warehouse"></i> Trocar SoC
+  </div>
   <div class="user-menu-item" onclick="location.reload()">
     <i class="fas fa-rotate-right"></i> Atualizar portal
   </div>
@@ -4566,7 +4577,7 @@
       </circle>
       <circle cx="50" cy="50" r="14" fill="url(#coreGradSidebar)"/>
     </svg>
-    <span class="logo-text">JARVIS<span class="logo-workloc" id="sidebar-workloc"></span></span>
+    <span class="logo-text">JARVIS<span class="logo-workloc" id="sidebar-soc"></span><span class="logo-workloc" id="sidebar-workloc"></span></span>
   </div>
 
   <div class="sidebar-nav">
@@ -7382,6 +7393,11 @@ function applyUser(user){
       av.textContent = user.initials;
     }
   }
+  // SoC escolhido pós-login (pedido do Roberto em 2026-09-21) — mostra ao
+  // lado do logo "JARVIS", antes do work location (ex: "JARVIS - RJ2 - Rio").
+  const socSidebar = document.getElementById('sidebar-soc');
+  if(socSidebar) socSidebar.textContent = user.soc ? ' - ' + user.soc : '';
+
   const un = document.getElementById('um-name'), ue = document.getElementById('um-email');
   // Selo de papel removido (pedido do Roberto em 2026-09-15) — não existe
   // mais distinção de papel por login, então o selo só poluía o menu.
@@ -7475,12 +7491,67 @@ async function authVerifyCode(){
       btn.innerHTML = '<i class="fas fa-arrow-right-to-bracket"></i> Entrar';
       return;
     }
-    enterPortal(j.user);
+    authEntrarOuEscolherSoc(j.user);
   } catch(err){
     authShowError('Falha de conexão — tenta de novo.');
     btn.disabled = false;
     btn.innerHTML = '<i class="fas fa-arrow-right-to-bracket"></i> Entrar';
   }
+}
+
+// Escolha de SoC pós-login (pedido do Roberto em 2026-09-21) — a sessão já
+// existe nesse ponto (DM ou QR), só falta escolher qual SoC ver antes de
+// entrar no portal. Reaproveitado também pra "Trocar SoC" no menu de perfil
+// (authTrocarSoc), com currentUser já logado.
+function authEntrarOuEscolherSoc(user){
+  if(user.soc){ enterPortal(user); return; }
+  mostrarSelecaoSoc();
+}
+
+async function mostrarSelecaoSoc(){
+  document.getElementById('login-step-email').style.display = 'none';
+  document.getElementById('login-step-code').style.display = 'none';
+  document.getElementById('login-step-soc').style.display = '';
+  document.getElementById('login-screen').classList.remove('hidden');
+  document.getElementById('app-splash')?.classList.add('hidden');
+  authClearError();
+
+  const list = document.getElementById('login-soc-list');
+  list.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i>';
+  try {
+    const r = await fetch('/api/auth?socs=1');
+    const j = await r.json();
+    const socs = (j.ok && j.socs) || [];
+    list.innerHTML = socs.map(s =>
+      `<button class="login-btn login-btn-outline" onclick="authEscolherSoc('${s.soc}')"><i class="fas fa-warehouse"></i> ${s.nome}</button>`
+    ).join('');
+  } catch(err){
+    list.innerHTML = '';
+    authShowError('Falha de conexão — tenta de novo.');
+  }
+}
+
+async function authEscolherSoc(soc){
+  authClearError();
+  try {
+    const r = await fetch('/api/auth?soc=1', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ soc }),
+    });
+    const j = await r.json();
+    if(!j.ok){ authShowError(j.erro || 'Não foi possível selecionar o SoC.'); return; }
+    document.getElementById('login-step-soc').style.display = 'none';
+    enterPortal(j.user);
+  } catch(err){
+    authShowError('Falha de conexão — tenta de novo.');
+  }
+}
+
+// "Trocar SoC" no menu de perfil — reaproveita a mesma tela, sessão já
+// existe, só troca o valor escolhido sem precisar logar de novo.
+function authTrocarSoc(){
+  closeUserMenu();
+  mostrarSelecaoSoc();
 }
 
 function authBackToEmail(){
@@ -7525,7 +7596,7 @@ async function authCheckSessao(){
   try {
     const r = await fetch('/api/auth?me=1');
     const j = await r.json();
-    if(j.ok && j.user){ enterPortal(j.user); return; }
+    if(j.ok && j.user){ authEntrarOuEscolherSoc(j.user); return; }
   } catch(err){ /* sem sessão, mostra a tela de login abaixo */ }
   // Só mostra a tela de login DEPOIS de confirmar que não tem sessão válida
   // (pedido do Roberto em 2026-09-15) — antes ela ficava visível por padrão

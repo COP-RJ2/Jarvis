@@ -18,12 +18,18 @@
  *   POST /api/auth?logout=1  -> encerra sessão
  *   GET  /api/auth?me=1      -> sessão atual (ou null)
  *
+ *   GET  /api/auth?socs=1        -> lista de SoCs disponíveis
+ *   POST /api/auth?soc=1 {soc}   -> escolhe o SoC da sessão atual (pedido do
+ *      Roberto em 2026-09-21) — roda DEPOIS da sessão já aberta pelos 2
+ *      métodos acima; o front mostra essa escolha antes de entrar no portal
+ *      quando `user.soc` vem nulo.
+ *
  * Nos dois métodos, depois da sessão aberta o bot manda uma DM de
  * confirmação "Login bem-sucedido às HH:MM" (pedido do Roberto em
  * 2026-09-15) — sem bloquear a resposta, ver notificarLoginSucesso().
  */
 const { pool } = require('../db');
-const { emailPermitido, usuarioDoEmail, nomeDoEmail, buscarWorkLocation } = require('./_users');
+const { emailPermitido, usuarioDoEmail, nomeDoEmail, buscarWorkLocation, SOCS } = require('./_users');
 const { resolverEmployeeCodePorEmail, enviarMensagemDireta, trocarCodePorEmployee, buscarWorkLocationSeaTalk } = require('./_seatalk');
 
 // Work location: tenta primeiro o perfil oficial da SeaTalk (custom field
@@ -157,6 +163,9 @@ async function handleVerify(req, res) {
   const employeeCode = await resolverEmployeeCodePorEmail(email).catch(() => null);
   const user = usuarioDoEmail(email);
   user.workLocation = await resolverWorkLocation(employeeCode, email);
+  // SoC ainda não escolhido (pedido do Roberto em 2026-09-21) — o front
+  // mostra a tela de seleção antes de entrar no portal quando isso vem nulo.
+  user.soc = null;
   req.session.user = user;
   res.status(200).json({ ok: true, user });
 
@@ -189,6 +198,7 @@ async function handleCallback(req, res) {
   // não traz isso, mas dá pra buscar via GET /contacts/v2/profile usando o
   // employee_code que acabamos de receber — ver resolverWorkLocation.
   usuario.workLocation = await resolverWorkLocation(employee.employee_code, email);
+  usuario.soc = null;
 
   req.session.user = usuario;
   res.redirect('/');
@@ -196,8 +206,37 @@ async function handleCallback(req, res) {
   notificarLoginSucesso(employee.employee_code, usuario.name, usuario.workLocation);
 }
 
+// Escolha de SoC pós-login (pedido do Roberto em 2026-09-21): a pessoa
+// autentica normal (DM ou QR) e só depois escolhe qual SoC quer ver, dentro
+// do próprio JARVIS — sem depender de mensagem interativa da SeaTalk (exigiria
+// permissão nova + webhook de callback que o app não tem hoje).
+function handleSocs(req, res) {
+  res.status(200).json({ ok: true, socs: SOCS });
+}
+
+function handleEscolherSoc(req, res) {
+  if (!req.session.user) { res.status(401).json({ ok: false, erro: 'Não autenticado.' }); return; }
+  const soc = String((req.body || {}).soc || '').trim().toUpperCase();
+  if (!SOCS.some(s => s.soc === soc)) {
+    res.status(400).json({ ok: false, erro: 'SoC inválido.' });
+    return;
+  }
+  req.session.user.soc = soc;
+  res.status(200).json({ ok: true, user: req.session.user });
+}
+
 module.exports = async (req, res) => {
   try {
+    if (req.query.socs !== undefined) {
+      if (req.method !== 'GET') { res.status(405).json({ ok: false, erro: 'Use GET' }); return; }
+      handleSocs(req, res);
+      return;
+    }
+    if (req.query.soc !== undefined) {
+      if (req.method !== 'POST') { res.status(405).json({ ok: false, erro: 'Use POST' }); return; }
+      handleEscolherSoc(req, res);
+      return;
+    }
     if (req.query.config !== undefined) {
       // App ID não é segredo (equivalente a um OAuth client_id) — só o App
       // Secret é sensível, e esse nunca sai do servidor.

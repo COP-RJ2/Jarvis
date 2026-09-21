@@ -4733,18 +4733,22 @@
       <div class="nav-item" data-section="matriz" data-label="Matriz" onclick="navigateTo('matriz',this)">
         <i class="fas fa-table-cells-large nav-icon"></i><span class="nav-label">Matriz</span>
       </div>
-      <div class="nav-item" data-section="mapadados" data-label="Mapa de Dados" onclick="navigateToAndExpand('mapadados',this,'navsub-mapadados')">
+      <!-- Escondida por pedido do Roberto em 2026-09-21 (volta no futuro) —
+           fica display:none, não nav-item-locked, porque a ideia aqui é
+           sumir de vez por enquanto, não mostrar cadeado. Continua tudo no
+           código (seção, subgrupo, funções) pra reativar só tirando o style. -->
+      <div class="nav-item" data-section="mapadados" data-label="Mapa de Dados" onclick="navigateToAndExpand('mapadados',this,'navsub-mapadados')" style="display:none">
         <i class="fas fa-database nav-icon"></i><span class="nav-label">Mapa de Dados</span>
         <i class="fas fa-chevron-down nav-expand-caret" onclick="event.stopPropagation(); toggleNavSubgroup('navsub-mapadados', this)"></i>
       </div>
-      <div class="nav-subgroup" id="navsub-mapadados">
+      <div class="nav-subgroup" id="navsub-mapadados" style="display:none">
         <div class="nav-subitem active" data-subkey="datamap" onclick="navSidebarSubpage(this,'mapadados','datamap','mapadados')">Mapa de Dados</div>
         <div class="nav-subitem" data-subkey="jarvis" onclick="navSidebarSubpage(this,'mapadados','jarvis','mapadados')">Jarvis</div>
       </div>
       <div class="nav-item" data-section="kanban" data-label="Kanban de Demandas" onclick="navigateTo('kanban',this)">
         <i class="fas fa-table-columns nav-icon"></i><span class="nav-label">Kanban de Demandas</span>
       </div>
-      <div class="nav-item" data-section="jornal" data-label="Jornal" onclick="navigateTo('jornal',this)">
+      <div class="nav-item" data-section="jornal" data-label="Jornal" onclick="navigateTo('jornal',this)" style="display:none">
         <i class="fas fa-newspaper nav-icon"></i><span class="nav-label">Jornal</span>
       </div>
     </div>
@@ -4757,7 +4761,9 @@
            modo noturno TV também já tinha saído daqui antes (2026-09-15) —
            continua acessível pelo TV Mode Config (toggleTvNight() em
            index.html:15218). -->
-      <div class="nav-item" data-section="switch" data-label="Switch" title="Switch" onclick="navigateTo('switch',this)" style="flex:1">
+      <!-- Escondida por pedido do Roberto em 2026-09-21 (volta no futuro) —
+           display:none, código intacto pra reativar. -->
+      <div class="nav-item" data-section="switch" data-label="Switch" title="Switch" onclick="navigateTo('switch',this)" style="flex:1;display:none">
         <i class="fas fa-sliders nav-icon"></i><span class="nav-label">Switch</span>
       </div>
     </div>
@@ -7349,21 +7355,43 @@ function canAccess(section){
   return allowed.includes(section);
 }
 
+// Escondidas por pedido do Roberto em 2026-09-21 (volta no futuro) — o HTML
+// já nasce com display:none, isso aqui só garante que applyAccessControl
+// não desfaz o esconderijo (ele reseta display:'' pra tudo que a role tem
+// acesso, e essas 3 continuam em ALL_SECTIONS de propósito, pra não perder
+// o controle de acesso quando voltarem).
+const NAV_SECOES_ESCONDIDAS = new Set(['mapadados', 'jornal', 'switch']);
+
+// Seções que só existem em determinado(s) SoC(s) (pedido do Roberto em
+// 2026-09-21: ASM e Triagem só têm dado no RJ2 hoje) — escondidas de quem
+// escolheu outro SoC no login.
+const NAV_SECOES_POR_SOC = { asm: ['RJ2'] };
+function socTemAcesso(sec){
+  const socsPermitidos = NAV_SECOES_POR_SOC[sec];
+  return !socsPermitidos || socsPermitidos.includes(currentUser && currentUser.soc);
+}
+
 function applyAccessControl(){
   if(!currentUser) return;
   const allowed = ROLE_ACCESS[currentUser.role] || GOV_SECTIONS;
   // Hide/show nav items based on access
   document.querySelectorAll('.nav-item[data-section]').forEach(item => {
     const sec = item.dataset.section;
-    if(!allowed.includes(sec)){
+    if(!allowed.includes(sec) || NAV_SECOES_ESCONDIDAS.has(sec) || !socTemAcesso(sec)){
       item.style.display = 'none';
     } else {
       item.style.display = '';
     }
   });
+  // Triagem é um subitem dentro do subgrupo de Inbound, não um nav-item
+  // próprio — mesma regra de SoC do ASM, tratada à parte.
+  const triagemSub = document.querySelector('.nav-subitem[data-subkey="triagem"]');
+  if(triagemSub) triagemSub.style.display = (currentUser.soc === 'RJ2') ? '' : 'none';
+
   // If current section is not allowed, redirect to first allowed
-  if(!allowed.includes(currentSection)){
-    const first = allowed[0] || 'gestao';
+  const secaoAtualOk = allowed.includes(currentSection) && !NAV_SECOES_ESCONDIDAS.has(currentSection) && socTemAcesso(currentSection);
+  if(!secaoAtualOk){
+    const first = allowed.find(s => !NAV_SECOES_ESCONDIDAS.has(s) && socTemAcesso(s)) || 'gestao';
     const el = document.querySelector(`.nav-item[data-section="${first}"]`);
     navigateTo(first, el);
   }
@@ -7739,6 +7767,26 @@ const TV_ELIGIBLE_PAGES = [
 let TV_MODE_SECTION = null;   // seção em TV Mode simples (1 aba)
 let TV_ROTATION = null;       // { pages, intervalSec, idx, timer, subpages } quando a rotação do TV Mode Config está ativa
 
+// TV Mode Config particionado por SoC (pedido do Roberto em 2026-09-21) —
+// cada SoC tem seu próprio padrão de rotação salvo, mesmo mecanismo de
+// sempre (localStorage, por dispositivo/TV física), só que agora com uma
+// chave por SoC em vez de uma só global.
+function tvmodeConfigKey(){
+  return 'pulso_tvmode_config_' + ((currentUser && currentUser.soc) || 'RJ2');
+}
+// Migra o valor antigo (chave global, de antes da escolha de SoC existir)
+// pro RJ2 na 1ª leitura — não perde a rotação já configurada, já que RJ2
+// era o único SoC com dado real até aqui.
+function tvmodeConfigLer(){
+  const chave = tvmodeConfigKey();
+  let raw = localStorage.getItem(chave);
+  if(raw == null && chave.endsWith('_RJ2')){
+    const legado = localStorage.getItem('pulso_tvmode_config');
+    if(legado != null){ localStorage.setItem(chave, legado); raw = legado; }
+  }
+  try { return JSON.parse(raw || '{}'); } catch(e){ return {}; }
+}
+
 // Páginas com subpáginas — pra rotação do TV Mode poder abrir a subpágina
 // certa de cada uma (pedido do Roberto em 2026-08-10), não só a seção.
 const TV_SUBPAGES = {
@@ -7878,7 +7926,7 @@ function tvRotationStart(items, intervalSec){
   tvRotationStop();
   if(!items.length) return;
   TV_ROTATION = { items, intervalSec, idx: 0 };
-  localStorage.setItem('pulso_tvmode_config', JSON.stringify({ items, intervalSec }));
+  localStorage.setItem(tvmodeConfigKey(), JSON.stringify({ items, intervalSec }));
   const badge = document.createElement('div');
   badge.className = 'tv-rotation-badge';
   badge.id = 'tv-rotation-badge';
@@ -15218,8 +15266,7 @@ function tvcfgToggleMode(key){
 function renderTvConfig(){
   const list = document.getElementById('tvcfg-page-list');
   if(!list) return;
-  let saved = {};
-  try { saved = JSON.parse(localStorage.getItem('pulso_tvmode_config') || '{}'); } catch(e){}
+  const saved = tvmodeConfigLer();
   const selecionados = (TV_ROTATION ? TV_ROTATION.items : (saved.items || [])).map(tvItemId);
   list.innerHTML = TV_ELIGIBLE_PAGES.map(p => {
     const sub = TV_SUBPAGES[p.key];

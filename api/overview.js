@@ -560,10 +560,15 @@ const KANBAN_TITLE = 'kanban_input';
 // titulo..url = campos de 'demanda' (mesma ordem/nomes de antes, pra não
 // precisar migrar o shape que o front já consome); chave/ordem/cor =
 // campos de 'dono'/'coluna'.
+// `soc` no fim (pedido do Roberto em 2026-09-21: cada SoC vê só o próprio
+// quadro) — coluna nova acrescentada ao header, não quebra leitura de linha
+// antiga (kanbanLinhaParaObjeto já trata campo ausente como ''); linha sem
+// soc gravado (dado de antes dessa mudança) é tratada como 'RJ2', o único
+// SoC que já tinha dado de verdade até aqui.
 const KANBAN_HEADER = [
   'tipo', 'id', 'titulo', 'descricao', 'dono', 'prioridade', 'status',
   'data_solicitacao', 'data_entrega', 'data_conclusao', 'criado_em',
-  'atualizado_em', 'tag', 'url', 'chave', 'ordem', 'cor',
+  'atualizado_em', 'tag', 'url', 'chave', 'ordem', 'cor', 'soc',
 ];
 const KANBAN_COLUNA_IDS = new Set(['fila', 'atrasado', 'andamento', 'hold', 'finalizado']);
 const KANBAN_COR_RE = /^#[0-9a-fA-F]{6}$/;
@@ -601,32 +606,44 @@ function novoKanbanId(prefixo) {
   return prefixo + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 }
 
+function kanbanSocDaLinha(r) { return r.soc || 'RJ2'; }
+
 // Lê a aba única e já separa em {donos, colunas, demandas} no formato que
-// o front espera (mesmo shape de sempre) — mutações sempre leem tudo,
-// mexem só no subconjunto que interessa, e escrevem tudo de volta junto
-// (kanbanWriteTab reescreve a aba inteira a cada chamada).
-async function kanbanReadAll() {
+// o front espera (mesmo shape de sempre), filtrado pro SoC da sessão —
+// mutações sempre leem só o próprio SoC, mexem no subconjunto que
+// interessa, e escrevem de volta (kanbanWriteAll preserva os outros SoCs).
+async function kanbanReadAll(soc) {
   const rows = await kanbanReadTab(KANBAN_TITLE, KANBAN_HEADER);
+  const doSoc = rows.filter(r => kanbanSocDaLinha(r) === soc);
   return {
-    donos: rows.filter(r => r.tipo === 'dono').map(r => ({ id: r.id, nome: r.chave, criado_em: r.criado_em, ordem: r.ordem, cor: r.cor })),
-    colunas: rows.filter(r => r.tipo === 'coluna').map(r => ({ id: r.id, status: r.chave, cor: r.cor })),
-    demandas: rows.filter(r => r.tipo === 'demanda').map(r => ({
+    donos: doSoc.filter(r => r.tipo === 'dono').map(r => ({ id: r.id, nome: r.chave, criado_em: r.criado_em, ordem: r.ordem, cor: r.cor })),
+    colunas: doSoc.filter(r => r.tipo === 'coluna').map(r => ({ id: r.id, status: r.chave, cor: r.cor })),
+    demandas: doSoc.filter(r => r.tipo === 'demanda').map(r => ({
       id: r.id, titulo: r.titulo, descricao: r.descricao, dono: r.dono, prioridade: r.prioridade, status: r.status,
       data_solicitacao: r.data_solicitacao, data_entrega: r.data_entrega, data_conclusao: r.data_conclusao,
       criado_em: r.criado_em, atualizado_em: r.atualizado_em, tag: r.tag, url: r.url,
     })),
   };
 }
-async function kanbanWriteAll(donos, colunas, demandas) {
-  const linhas = [
-    ...donos.map(d => ({ tipo: 'dono', id: d.id, chave: d.nome, criado_em: d.criado_em || '', ordem: d.ordem != null ? d.ordem : '', cor: d.cor || '' })),
-    ...colunas.map(c => ({ tipo: 'coluna', id: c.id, chave: c.status, cor: c.cor || '' })),
-    ...demandas.map(d => ({ tipo: 'demanda', ...d })),
+// Reescreve só as linhas do SoC atual, preservando intactas as de todos os
+// outros SoCs (a aba é única — kanbanWriteTab sempre reescreve ela inteira).
+async function kanbanWriteAll(soc, donos, colunas, demandas) {
+  const todasAsLinhas = await kanbanReadTab(KANBAN_TITLE, KANBAN_HEADER);
+  const deOutrosSocs = todasAsLinhas.filter(r => kanbanSocDaLinha(r) !== soc);
+  const linhasDesteSoc = [
+    ...donos.map(d => ({ tipo: 'dono', id: d.id, chave: d.nome, criado_em: d.criado_em || '', ordem: d.ordem != null ? d.ordem : '', cor: d.cor || '', soc })),
+    ...colunas.map(c => ({ tipo: 'coluna', id: c.id, chave: c.status, cor: c.cor || '', soc })),
+    ...demandas.map(d => ({ tipo: 'demanda', ...d, soc })),
   ];
-  await kanbanWriteTab(KANBAN_TITLE, KANBAN_HEADER, linhas);
+  await kanbanWriteTab(KANBAN_TITLE, KANBAN_HEADER, [...deOutrosSocs, ...linhasDesteSoc]);
 }
 
 async function buildKanban(req, res) {
+  // Cada SoC vê só o próprio quadro (pedido do Roberto em 2026-09-21) —
+  // soc vem da sessão (já escolhido no login), 'RJ2' como fallback pro
+  // único SoC com dado de antes dessa mudança existir.
+  const soc = (req.session.user && req.session.user.soc) || 'RJ2';
+
   if (req.method === 'POST') {
     const action = (req.body || {}).action;
     const entry = (req.body || {}).entry || {};
@@ -636,16 +653,16 @@ async function buildKanban(req, res) {
       if (action === 'create_dono') {
         const nome = String(entry.nome || '').trim();
         if (!nome) { res.status(400).json({ ok: false, erro: 'nome é obrigatório' }); return; }
-        const { donos, colunas, demandas } = await kanbanReadAll();
+        const { donos, colunas, demandas } = await kanbanReadAll(soc);
         donos.push({ id: novoKanbanId('do'), nome, criado_em: agora });
-        await kanbanWriteAll(donos, colunas, demandas);
+        await kanbanWriteAll(soc, donos, colunas, demandas);
         res.status(200).json({ ok: true, donos });
         return;
       }
       if (action === 'delete_dono') {
-        const { donos, colunas, demandas } = await kanbanReadAll();
+        const { donos, colunas, demandas } = await kanbanReadAll(soc);
         const restantes = donos.filter(d => d.id !== entry.id);
-        await kanbanWriteAll(restantes, colunas, demandas);
+        await kanbanWriteAll(soc, restantes, colunas, demandas);
         res.status(200).json({ ok: true, donos: restantes });
         return;
       }
@@ -653,14 +670,14 @@ async function buildKanban(req, res) {
       // existe via nome usado em demanda.dono).
       if (action === 'update_dono_ordens') {
         const ordens = Array.isArray(entry.ordens) ? entry.ordens : [];
-        const { donos, colunas, demandas } = await kanbanReadAll();
+        const { donos, colunas, demandas } = await kanbanReadAll(soc);
         ordens.forEach(({ nome, ordem }) => {
           if (!nome) return;
           const atual = donos.find(d => d.nome === nome);
           if (atual) atual.ordem = ordem;
           else donos.push({ id: novoKanbanId('do'), nome, criado_em: agora, ordem, cor: '' });
         });
-        await kanbanWriteAll(donos, colunas, demandas);
+        await kanbanWriteAll(soc, donos, colunas, demandas);
         res.status(200).json({ ok: true, donos });
         return;
       }
@@ -668,11 +685,11 @@ async function buildKanban(req, res) {
         const nome = String(entry.nome || '').trim();
         const cor = entry.cor && KANBAN_COR_RE.test(entry.cor) ? entry.cor : '';
         if (!nome) { res.status(400).json({ ok: false, erro: 'nome é obrigatório' }); return; }
-        const { donos, colunas, demandas } = await kanbanReadAll();
+        const { donos, colunas, demandas } = await kanbanReadAll(soc);
         const atual = donos.find(d => d.nome === nome);
         if (atual) atual.cor = cor;
         else donos.push({ id: novoKanbanId('do'), nome, criado_em: agora, ordem: '', cor });
-        await kanbanWriteAll(donos, colunas, demandas);
+        await kanbanWriteAll(soc, donos, colunas, demandas);
         res.status(200).json({ ok: true, donos });
         return;
       }
@@ -680,17 +697,17 @@ async function buildKanban(req, res) {
         const status = String(entry.status || '');
         if (!KANBAN_COLUNA_IDS.has(status)) { res.status(400).json({ ok: false, erro: 'coluna inválida' }); return; }
         const cor = entry.cor && KANBAN_COR_RE.test(entry.cor) ? entry.cor : '';
-        const { donos, colunas, demandas } = await kanbanReadAll();
+        const { donos, colunas, demandas } = await kanbanReadAll(soc);
         const atual = colunas.find(c => c.status === status);
         if (atual) atual.cor = cor;
         else colunas.push({ id: status, status, cor });
-        await kanbanWriteAll(donos, colunas, demandas);
+        await kanbanWriteAll(soc, donos, colunas, demandas);
         res.status(200).json({ ok: true, colunas });
         return;
       }
 
       if (action === 'create_demanda' || action === 'update_demanda') {
-        const { donos, colunas, demandas } = await kanbanReadAll();
+        const { donos, colunas, demandas } = await kanbanReadAll(soc);
         if (entry.prioridade && !KANBAN_PRIORIDADES.has(entry.prioridade)) { res.status(400).json({ ok: false, erro: 'prioridade inválida' }); return; }
         if (entry.status && !KANBAN_STATUS.has(entry.status)) { res.status(400).json({ ok: false, erro: 'status inválido' }); return; }
         if (entry.tag && !KANBAN_TAGS.has(entry.tag)) { res.status(400).json({ ok: false, erro: 'tag inválida' }); return; }
@@ -708,7 +725,7 @@ async function buildKanban(req, res) {
             criado_em: agora, atualizado_em: agora,
           };
           demandas.push(nova);
-          await kanbanWriteAll(donos, colunas, demandas);
+          await kanbanWriteAll(soc, donos, colunas, demandas);
           res.status(200).json({ ok: true, demandas });
           return;
         }
@@ -735,15 +752,15 @@ async function buildKanban(req, res) {
           data_conclusao: statusMudouParaFinalizado ? agora.slice(0, 10) : (statusSaiuDeFinalizado ? '' : atual.data_conclusao),
           atualizado_em: agora,
         };
-        await kanbanWriteAll(donos, colunas, demandas);
+        await kanbanWriteAll(soc, donos, colunas, demandas);
         res.status(200).json({ ok: true, demandas });
         return;
       }
 
       if (action === 'delete_demanda') {
-        const { donos, colunas, demandas } = await kanbanReadAll();
+        const { donos, colunas, demandas } = await kanbanReadAll(soc);
         const restantes = demandas.filter(d => d.id !== entry.id);
-        await kanbanWriteAll(donos, colunas, restantes);
+        await kanbanWriteAll(soc, donos, colunas, restantes);
         res.status(200).json({ ok: true, demandas: restantes });
         return;
       }
@@ -756,9 +773,9 @@ async function buildKanban(req, res) {
   }
 
   try {
-    const { donos, colunas, demandas } = await kanbanReadAll();
+    const { donos, colunas, demandas } = await kanbanReadAll(soc);
     res.setHeader('Cache-Control', 'no-store');
-    res.status(200).json({ ok: true, donos, demandas, colunas });
+    res.status(200).json({ ok: true, donos, demandas, colunas, soc });
   } catch (err) {
     res.status(502).json({ ok: false, erro: err.message });
   }

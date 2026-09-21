@@ -441,3 +441,65 @@ CREATE TABLE IF NOT EXISTS arvore_valores (
 --    db/migracao_packed_on_time.sql e docs/ (de-para em MD enviado pelo
 --    Roberto) para o schema completo e o mapeamento de colunas.
 -- ============================================================================
+
+
+-- ============================================================================
+-- 6. GOLD — média histórica por soc/turno/janela de 4h (pedido do Roberto
+--    em 2026-09-21). Base pra 4 frentes combinando dado ao vivo x histórico:
+--    card "512/h agora vs média de 480/h", alerta de desvio, retrospectiva
+--    de turno, faixa de referência no gráfico. Ranking entre SoCs foi
+--    descartado explicitamente pelo Roberto — não construir.
+--
+--    Começa só com LH (único domínio com Silver pronto — final_raw_data_lh,
+--    ver docs/modelo-final-raw-data-lh.md). FM/ASM/Backlog ganham a mesma
+--    view assim que tiverem tabela Silver própria — mesmo padrão, só troca
+--    a FROM e a definição de "on_time" de cada domínio.
+--
+--    Janela de 4h alinhada ao cutoff operacional de 6h já usado no resto do
+--    JARVIS (ver api/_period.js): 02-06/06-10/10-14/14-18/18-22/22-02 — não
+--    é 00-04/04-08/etc, senão os limites cortariam a operação da manhã ao
+--    meio de um turno.
+--
+--    Janela de comparação: 28 dias corridos (4 semanas, pedido explícito no
+--    exemplo "média das últimas 4 semanas"). View simples (não
+--    materializada de propósito — volume de final_raw_data_lh é baixo o
+--    bastante, ponytail: recalcular a cada query é mais simples que gerir
+--    refresh de materialized view; troca se a performance pedir).
+-- ============================================================================
+
+CREATE OR REPLACE VIEW gold_media_historica_lh AS
+SELECT
+  soc,
+  turno_shipped,
+  CASE
+    WHEN hora_cpt_planejado >= 2  AND hora_cpt_planejado < 6  THEN '02-06'
+    WHEN hora_cpt_planejado >= 6  AND hora_cpt_planejado < 10 THEN '06-10'
+    WHEN hora_cpt_planejado >= 10 AND hora_cpt_planejado < 14 THEN '10-14'
+    WHEN hora_cpt_planejado >= 14 AND hora_cpt_planejado < 18 THEN '14-18'
+    WHEN hora_cpt_planejado >= 18 AND hora_cpt_planejado < 22 THEN '18-22'
+    ELSE '22-02'
+  END AS janela_4h,
+  count(*) FILTER (WHERE cpt_realizado IS NOT NULL) AS amostras,
+  -- Mesma definição de "on time" já usada em api/_outbound.js
+  -- (cptOnTime: dReal <= dRef, dRef = cpt_scheduled_origin_edited com
+  -- fallback pra cpt_origin_scheduled) — não inventa régua nova.
+  avg(
+    CASE WHEN cpt_realizado IS NOT NULL
+              AND cpt_realizado <= COALESCE(cpt_scheduled_origin_edited, cpt_origin_scheduled)
+         THEN 100.0 ELSE 0.0 END
+  ) AS pct_on_time_medio,
+  stddev_samp(
+    CASE WHEN cpt_realizado IS NOT NULL
+              AND cpt_realizado <= COALESCE(cpt_scheduled_origin_edited, cpt_origin_scheduled)
+         THEN 100.0 ELSE 0.0 END
+  ) AS pct_on_time_desvio
+FROM final_raw_data_lh
+WHERE sta_origin_date >= current_date - INTERVAL '28 days'
+  AND cpt_scheduled_origin_edited IS NOT NULL
+GROUP BY soc, turno_shipped, janela_4h;
+
+-- "Ao vivo" pro LH não vem do Pulse (esse domínio não tem serviço Pulse
+-- próprio) — é o próprio final_raw_data_lh de HOJE, já que ele é
+-- atualizado a cada hora. Mesma view acima, só trocando o filtro de
+-- janela pra "hoje" em vez de 28 dias — por isso não vira uma view à
+-- parte, o consumidor (futuro api/gold.js) troca só o WHERE.

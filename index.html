@@ -4602,12 +4602,14 @@
       <div class="nav-item nav-item-locked" data-section="performance" data-label="Performance">
         <i class="fas fa-chart-line nav-icon"></i><span class="nav-label">Performance</span><i class="fas fa-lock nav-lock-icon"></i>
       </div>
-      <!-- Labor Plan é uma PÁGINA DEDICADA (/olho-de-deus/, app próprio com
-           senha), não uma seção interna — mesmo padrão da Árvore de KPI's: o
-           item continua com data-section pro controle de acesso por perfil,
-           mas o clique encaminha pra fora. -->
-      <div class="nav-item" data-section="laborplan" data-label="Labor Plan" onclick="window.location.href='/olho-de-deus/'">
-        <i class="fas fa-brain nav-icon"></i><span class="nav-label">Labor Plan</span>
+      <!-- Labor Plan trancada por enquanto (pedido do Roberto em
+           2026-09-21) — mesmo padrão de Performance/Score Card/Live SoC,
+           volta a ficar acessível quando o Roberto pedir de novo. Era uma
+           PÁGINA DEDICADA (/olho-de-deus/, app próprio com senha), não uma
+           seção interna; se destrancar, o onclick volta a ser
+           window.location.href='/olho-de-deus/'. -->
+      <div class="nav-item nav-item-locked" data-section="laborplan" data-label="Labor Plan">
+        <i class="fas fa-brain nav-icon"></i><span class="nav-label">Labor Plan</span><i class="fas fa-lock nav-lock-icon"></i>
       </div>
       <div class="nav-item" data-section="backlog" data-label="Backlog" onclick="navigateTo('backlog',this)">
         <i class="fas fa-layer-group nav-icon"></i><span class="nav-label">Backlog</span>
@@ -4699,8 +4701,12 @@
       <div class="nav-item" data-section="arvore" data-label="Árvore de KPI's" onclick="window.location.href='/arvore.html'">
         <i class="fas fa-tree nav-icon"></i><span class="nav-label">Árvore de KPI's</span>
       </div>
-      <div class="nav-item" data-section="kpioverview" data-label="Overview KPIs" onclick="navigateTo('kpioverview',this)">
-        <span class="nav-icon-composite"><i class="fas fa-gauge-simple-high icon-base" style="font-size:14px"></i><span class="icon-badge" style="font-size:6px;padding:0 1.5px">KPI</span></span><span class="nav-label">Overview KPIs</span>
+      <!-- Trancada por enquanto (pedido do Roberto em 2026-09-21), mesmo
+           padrão de Performance/Score Card/Live SoC/Labor Plan — volta a
+           ficar acessível quando o Roberto pedir de novo (só tirar
+           nav-item-locked + devolver o onclick="navigateTo('kpioverview',this)"). -->
+      <div class="nav-item nav-item-locked" data-section="kpioverview" data-label="Overview KPIs">
+        <span class="nav-icon-composite"><i class="fas fa-gauge-simple-high icon-base" style="font-size:14px"></i><span class="icon-badge" style="font-size:6px;padding:0 1.5px">KPI</span></span><span class="nav-label">Overview KPIs</span><i class="fas fa-lock nav-lock-icon"></i>
       </div>
       <!-- Packed on Time (pedido do Roberto em 2026-09-16) — mesmo padrão da
            Árvore de KPI's: página dedicada, estática, com layout/design

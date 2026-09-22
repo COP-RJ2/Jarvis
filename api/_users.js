@@ -38,6 +38,28 @@ const SOCS = [
   { soc: 'SC1', nome: 'SC1' },
   { soc: 'SC2', nome: 'SC2' },
 ];
+const SOCS_VALIDOS = new Set(SOCS.map(s => s.soc));
+
+// Resolve o SoC da sessão de forma explícita (pedido do Roberto em
+// 2026-09-22, achado na varredura multi-SoC) — até aqui, todo endpoint que
+// precisava do SoC usava `(req.session.user && req.session.user.soc) ||
+// 'RJ2'`, um fallback silencioso pensado só pra sessão antiga (de antes da
+// escolha de SoC existir, 2026-09-21). Isso era intencional então, mas vira
+// perigoso assim que RJ6/SC1/SC2 tiverem dado de verdade: uma sessão
+// quebrada (soc nulo/inválido por qualquer motivo) passaria a misturar
+// silenciosamente dado de outro usuário com o de RJ2, sem nenhum sinal de
+// erro. Esta função escreve a resposta de erro ela mesma e devolve null —
+// o chamador só precisa `if (!soc) return;`.
+function socDaSessaoOuErro(req, res) {
+  const soc = req.session.user && req.session.user.soc;
+  if (soc && SOCS_VALIDOS.has(soc)) return soc;
+  res.status(401).json({
+    ok: false,
+    erro: 'Sessão sem SoC válido — faça login novamente e escolha o SoC.',
+    socInvalido: true,
+  });
+  return null;
+}
 
 async function garantirTabelaWorkLocations() {
   await pool.query(`
@@ -84,4 +106,4 @@ function usuarioDoEmail(email) {
   };
 }
 
-module.exports = { emailPermitido, nomeDoEmail, usuarioDoEmail, buscarWorkLocation, DOMINIOS_PERMITIDOS, SOCS };
+module.exports = { emailPermitido, nomeDoEmail, usuarioDoEmail, buscarWorkLocation, DOMINIOS_PERMITIDOS, SOCS, SOCS_VALIDOS, socDaSessaoOuErro };

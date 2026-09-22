@@ -40,6 +40,7 @@
 const { fetchTabByGid, fetchTabRawValues, updateRangeRaw, readRange, writeRange, ensureSheetExists } = require('./_google');
 const { toNum, dataOperacionalDe, hojeOperacionalIso } = require('./_period');
 const { buildArvore, writeArvoreValores, freezeArvoreAll, buildArvoreDoBanco, adicionarArvoreKpi, writeArvoreValoresDoBanco } = require('./_arvore');
+const { socDaSessaoOuErro } = require('./_users');
 
 // Planejamento de capacidade (labor_pulso) — inline em vez de um endpoint
 // próprio (api/labor.js): Overview é o único consumidor hoje, e o limite de
@@ -639,10 +640,12 @@ async function kanbanWriteAll(soc, donos, colunas, demandas) {
 }
 
 async function buildKanban(req, res) {
-  // Cada SoC vê só o próprio quadro (pedido do Roberto em 2026-09-21) —
-  // soc vem da sessão (já escolhido no login), 'RJ2' como fallback pro
-  // único SoC com dado de antes dessa mudança existir.
-  const soc = (req.session.user && req.session.user.soc) || 'RJ2';
+  // Cada SoC vê só o próprio quadro (pedido do Roberto em 2026-09-21) — soc
+  // vem da sessão (já escolhido no login). Sem fallback silencioso pra RJ2
+  // (pedido do Roberto em 2026-09-22): sessão sem SoC válido é erro
+  // explícito, não mistura dado de ninguém com o de RJ2 por engano.
+  const soc = socDaSessaoOuErro(req, res);
+  if (!soc) return;
 
   if (req.method === 'POST') {
     const action = (req.body || {}).action;
@@ -1167,7 +1170,8 @@ module.exports = async (req, res) => {
       // preenchimento manual precisa gravar no mesmo lugar que ela lê,
       // senão o botão "Preencher dados" parece funcionar mas o valor nunca
       // aparece na tela.
-      const soc = (req.session.user && req.session.user.soc) || 'RJ2';
+      const soc = socDaSessaoOuErro(req, res);
+      if (!soc) return;
       const resultado = await writeArvoreValoresDoBanco(soc, entries);
       res.status(200).json({ ok: true, ...resultado });
     } catch (err) {
@@ -1185,7 +1189,8 @@ module.exports = async (req, res) => {
       return;
     }
     try {
-      const soc = (req.session.user && req.session.user.soc) || 'RJ2';
+      const soc = socDaSessaoOuErro(req, res);
+      if (!soc) return;
       const resultado = await adicionarArvoreKpi(soc, req.body || {});
       res.status(resultado.ok ? 200 : 400).json(resultado);
     } catch (err) {
@@ -1201,7 +1206,8 @@ module.exports = async (req, res) => {
       // cadastrar via "+ Adicionar KPI". buildArvore()/writeArvoreValores()/
       // freezeArvoreAll() continuam existindo (branches acima) mas nada os
       // chama mais a partir daqui — não removidos, fora do escopo.
-      const soc = (req.session.user && req.session.user.soc) || 'RJ2';
+      const soc = socDaSessaoOuErro(req, res);
+      if (!soc) return;
       const dados = await buildArvoreDoBanco(soc);
       // ?_fresh=... (arvore.html manda isso logo após "Preencher dados" ou
       // "Salvar KPI" recarregar a página) pula o cache do CDN — sem isso o

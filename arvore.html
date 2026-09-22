@@ -2632,7 +2632,11 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
   const { useState, useMemo } = React;
 
   const BLOCO_OPCOES = ["Pessoas", "Inventário", "Planejamento", "Inbound", "Máquina", "Sorter", "Esteira", "Outbound", "Auditoria", "RETURNS"];
-  const PIC_OPCOES = ["Ingryd (HSE)", "COP", "Diogo (INV)", "Rodrigo (PCP)", "PCM"];
+  // Nomenclatura atualizada (pedido do Roberto em 2026-09-22): Diogo (INV)
+  // -> Inventário, Ingryd (HSE) -> HSE, Rodrigo (PCP) -> PCP. Os 139 KPIs
+  // do RJ2 já gravados foram atualizados junto (UPDATE direto em
+  // de_para_arvore_kpis.pic), não fica nome antigo misturado com novo.
+  const PIC_OPCOES = ["HSE", "COP", "Inventário", "PCP", "PCM"];
   const SUB_BLOCO_OPCOES = ["ACA", "PS", "HSE", "ABS", "Stuck Received (Inbound)", "Stuck Packed/Packing (Outbound)", "Inventário", "Forecast", "Planejamento", "Aderência", "LH", "FM", "QB", "Triagem", "Rejeito", "Automação", "Sorter", "Esteira", "Outbound", "Mis", "EHA | RETURNS", "Packed"];
   // "Como consolidar na semana" — enum de verdade que aggregatePeriod (ver
   // arvore.html, componente KPITable/utils de agregação) usa pra fechar o

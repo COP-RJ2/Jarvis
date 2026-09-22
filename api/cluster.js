@@ -84,6 +84,7 @@ const { toNum, parseCSV } = require('./_period');
 const { enrich, toCarroRow } = require('./_outbound');
 const { lerPorSoc } = require('./_pg');
 const { socDaSessaoOuErro } = require('./_users');
+const { pool } = require('../db');
 
 const CLUSTER_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '646168208' };
 const CONFIG_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '1408724077' };
@@ -462,7 +463,119 @@ function buildDeParaDoBanco(pgRows) {
   return { STAGING_DEPARA, RUA_ROSTER, CAPACIDADE_POR_RUA, CLUSTER_ESPERADO };
 }
 
+// ── "Configurar Ruas" (?ruas=1) — pedido do Roberto em 2026-09-22: cada SoC
+// (RJ6/SC1/SC2 hoje sem cadastro, e RJ2 se quiser editar) autogerencia seu
+// próprio de-para de ruas (staging_area_id/rua/capacidade/cluster_esperado)
+// direto pela tela, sem depender de mim rodando SQL manual ou de Sheets.
+// GET  lista as linhas de de_para_ruas do soc da sessão, já na ordem física
+// (ordemFisicaDaRua) pra edição. POST faz create/update/delete de 1 linha —
+// `soc` NUNCA vem do payload do cliente, sempre de socDaSessaoOuErro (mesma
+// regra de segurança de todo o multi-SoC). Mesmo espírito de validação do
+// adicionarArvoreKpi (api/_arvore.js), adaptado pra CRUD completo.
+async function handleRuas(req, res) {
+  const soc = socDaSessaoOuErro(req, res);
+  if (!soc) return;
+
+  const listar = async () => {
+    const linhas = await lerPorSoc('de_para_ruas', soc);
+    linhas.sort((a, b) => ordemFisicaDaRua(a.rua) - ordemFisicaDaRua(b.rua));
+    return linhas;
+  };
+
+  if (req.method === 'GET') {
+    try {
+      res.status(200).json({ ok: true, ruas: await listar() });
+    } catch (err) {
+      res.status(502).json({ ok: false, erro: err.message });
+    }
+    return;
+  }
+
+  if (req.method !== 'POST') {
+    res.status(405).json({ ok: false, erro: 'Use GET ou POST' });
+    return;
+  }
+
+  const action = (req.body || {}).action;
+  const ruaPayload = (req.body || {}).rua || {};
+  const staging_area_id = String(ruaPayload.staging_area_id || '').trim();
+
+  if (action === 'delete') {
+    if (!staging_area_id) {
+      res.status(400).json({ ok: false, erro: 'Staging Area ID obrigatório.' });
+      return;
+    }
+    try {
+      await pool.query('DELETE FROM de_para_ruas WHERE soc = $1 AND staging_area_id = $2', [soc, staging_area_id]);
+      res.status(200).json({ ok: true, ruas: await listar() });
+    } catch (err) {
+      res.status(502).json({ ok: false, erro: err.message });
+    }
+    return;
+  }
+
+  if (action !== 'create' && action !== 'update') {
+    res.status(400).json({ ok: false, erro: 'action inválida (use create, update ou delete).' });
+    return;
+  }
+
+  const rua = String(ruaPayload.rua || '').trim();
+  const capacidade = toNum(ruaPayload.capacidade);
+  const clusterEsperado = String(ruaPayload.cluster_esperado || '').trim() || null;
+
+  const faltando = [];
+  if (!staging_area_id) faltando.push('Staging Area ID');
+  if (!rua) faltando.push('Rua');
+  if (ruaPayload.capacidade === undefined || ruaPayload.capacidade === null || ruaPayload.capacidade === '' || isNaN(capacidade) || capacidade < 0) {
+    faltando.push('Capacidade (número >= 0)');
+  }
+  if (faltando.length) {
+    res.status(400).json({ ok: false, erro: `Campo(s) obrigatório(s) inválido(s): ${faltando.join(', ')}.` });
+    return;
+  }
+
+  try {
+    if (action === 'create') {
+      await pool.query(
+        `INSERT INTO de_para_ruas (soc, staging_area_id, rua, capacidade, cluster_esperado, atualizado_em)
+         VALUES ($1, $2, $3, $4, $5, now())`,
+        [soc, staging_area_id, rua, capacidade, clusterEsperado]
+      );
+    } else {
+      const { rowCount } = await pool.query(
+        `UPDATE de_para_ruas SET rua = $3, capacidade = $4, cluster_esperado = $5, atualizado_em = now()
+          WHERE soc = $1 AND staging_area_id = $2`,
+        [soc, staging_area_id, rua, capacidade, clusterEsperado]
+      );
+      if (!rowCount) {
+        res.status(404).json({ ok: false, erro: `Rua com Staging Area ID "${staging_area_id}" não encontrada pra esse SoC.` });
+        return;
+      }
+    }
+  } catch (err) {
+    // 23505 = unique_violation (soc, staging_area_id) — mensagem clara em vez
+    // de 502 genérico, mesmo tratamento de duplicata do adicionarArvoreKpi.
+    if (err.code === '23505') {
+      res.status(400).json({ ok: false, erro: `Já existe uma rua cadastrada com Staging Area ID "${staging_area_id}" pra esse SoC.` });
+      return;
+    }
+    res.status(502).json({ ok: false, erro: err.message });
+    return;
+  }
+
+  try {
+    res.status(200).json({ ok: true, ruas: await listar() });
+  } catch (err) {
+    res.status(502).json({ ok: false, erro: err.message });
+  }
+}
+
 module.exports = async (req, res) => {
+  if (req.query.ruas !== undefined) {
+    await handleRuas(req, res);
+    return;
+  }
+
   const soc = socDaSessaoOuErro(req, res);
   if (!soc) return;
 

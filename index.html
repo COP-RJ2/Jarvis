@@ -5984,6 +5984,7 @@
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
           <div class="section-dl-group">
             <button class="spr-pipboy-btn" onclick="pulsoOpenPipboy('clusterizacao')"><i class="fas fa-satellite-dish"></i> COP Boy</button>
+            <button class="dl-btn dl-btn-csv" onclick="ruasOpenModal()"><i class="fas fa-road"></i> Configurar Ruas</button>
             <button class="dl-btn dl-btn-csv" onclick="pulsoLoad('clusterizacao')"><i class="fas fa-rotate-right"></i> Atualizar</button>
           </div>
           <div id="cluster-last-update" style="font-size:11px;color:var(--text-muted)"></div>
@@ -7446,6 +7447,52 @@
         <button type="submit" class="btn btn-primary"><i class="fas fa-check"></i> Salvar</button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- Modal "Configurar Ruas" (Clusterização) — pedido do Roberto em 2026-09-22:
+     cada SoC autogerencia seu de-para de ruas (staging_area_id/rua/
+     capacidade/cluster_esperado) direto pela tela, sem SQL manual nem
+     planilha. Mesmo motivo do datamap-modal-overlay acima pra morar aqui
+     fora das sections (fadeUp + fill-mode:both quebra position:fixed). -->
+<div class="modal-overlay" id="ruas-modal-overlay" onclick="if(event.target===this) ruasCloseModal()">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="ruas-modal-label" style="max-width:820px">
+    <div class="modal-header">
+      <span class="modal-title" id="ruas-modal-label"><i class="fas fa-road" style="color:var(--accent-ll);margin-right:8px"></i>Configurar Ruas</span>
+      <button class="modal-close" onclick="ruasCloseModal()"><i class="fas fa-xmark"></i></button>
+    </div>
+    <div style="padding:0 20px 4px;font-size:12px;color:var(--text-muted)">De-para de ruas do seu SoC: Staging Area ID (código físico), Rua, Capacidade (posições) e Cluster Esperado (destino ideal pra clusterização).</div>
+    <form id="ruas-form" onsubmit="ruasSubmit(event)" style="padding:12px 20px 0">
+      <input type="hidden" id="ruas-editing-id"/>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Staging Area ID *</label>
+          <input type="text" class="form-input" id="ruas-f-staging-id" required placeholder="Ex.: OBS-03CW"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Rua *</label>
+          <input type="text" class="form-input" id="ruas-f-rua" required placeholder="Ex.: RUA 037"/>
+        </div>
+        <div class="form-group" style="max-width:140px">
+          <label class="form-label">Capacidade *</label>
+          <input type="number" class="form-input" id="ruas-f-capacidade" required min="0" step="1" placeholder="20"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Cluster Esperado</label>
+          <input type="text" class="form-input" id="ruas-f-cluster" placeholder="Destino ideal (opcional)"/>
+        </div>
+      </div>
+      <div class="modal-footer" style="padding:4px 0 16px">
+        <button type="button" class="btn btn-outline" id="ruas-cancel-edit-btn" onclick="ruasCancelEdit()" style="display:none">Cancelar edição</button>
+        <button type="submit" class="btn btn-primary" id="ruas-submit-btn"><i class="fas fa-plus"></i> Adicionar Rua</button>
+      </div>
+    </form>
+    <div style="padding:0 20px 20px;max-height:50vh;overflow:auto">
+      <table class="clst-table" style="width:100%">
+        <thead><tr><th>Staging Area ID</th><th>Rua</th><th>Capacidade</th><th>Cluster Esperado</th><th></th></tr></thead>
+        <tbody id="ruas-table-body"></tbody>
+      </table>
+    </div>
   </div>
 </div>
 
@@ -16181,6 +16228,127 @@ async function dataMapDelete(id){
     dataMapEntries = j.entries;
     buildDataMap(DATAMAP_FILTER);
     showToast('✓ Entrada excluída.');
+  } catch(err){
+    showToast('Erro: '+err.message, true);
+  }
+}
+
+/* ================================================================
+   CONFIGURAR RUAS (Clusterização) — CRUD do de-para de ruas por SoC, pedido
+   do Roberto em 2026-09-22 (RJ6/SC1/SC2 sem cadastro hoje dependiam de SQL
+   manual; RJ2 pode editar também). Persistido via /api/cluster?ruas=1 (ver
+   handleRuas em api/cluster.js). Edição inline: "Editar" carrega a linha no
+   form do topo (mesmo form serve pra criar e editar); Staging Area ID vira
+   readonly durante edição porque é chave primária (soc, staging_area_id).
+================================================================ */
+let ruasCache = [];
+
+function ruasRenderTable(){
+  const tbody = document.getElementById('ruas-table-body');
+  if(!tbody) return;
+  if(!ruasCache.length){
+    tbody.innerHTML = '<tr><td colspan="5" class="switch-hint">Nenhuma rua cadastrada ainda pro seu SoC. Use o formulário acima pra adicionar.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = ruasCache.map(r => `
+    <tr>
+      <td>${pulsoEscHtml(r.staging_area_id)}</td>
+      <td>${pulsoEscHtml(r.rua)}</td>
+      <td>${pulsoEscHtml(String(r.capacidade))}</td>
+      <td>${r.cluster_esperado ? pulsoEscHtml(r.cluster_esperado) : '—'}</td>
+      <td style="white-space:nowrap">
+        <button type="button" class="data-card-action-btn" onclick="ruasEdit('${pulsoEscHtml(r.staging_area_id)}')" title="Editar"><i class="fas fa-pen"></i></button>
+        <button type="button" class="data-card-action-btn" onclick="ruasDelete('${pulsoEscHtml(r.staging_area_id)}')" title="Excluir"><i class="fas fa-trash"></i></button>
+      </td>
+    </tr>`).join('');
+}
+
+async function ruasOpenModal(){
+  document.getElementById('ruas-modal-overlay').classList.add('open');
+  ruasCancelEdit();
+  const tbody = document.getElementById('ruas-table-body');
+  if(tbody) tbody.innerHTML = '<tr><td colspan="5" class="switch-hint">Carregando…</td></tr>';
+  try {
+    const r = await fetch('/api/cluster?ruas=1');
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.erro || 'falha ao carregar ruas');
+    ruasCache = j.ruas;
+    ruasRenderTable();
+  } catch(err){
+    if(tbody) tbody.innerHTML = `<tr><td colspan="5" class="switch-hint">Erro: ${pulsoEscHtml(err.message)}</td></tr>`;
+  }
+}
+function ruasCloseModal(){
+  document.getElementById('ruas-modal-overlay').classList.remove('open');
+  // Recarrega o board principal pra refletir eventuais mudanças sem F5.
+  pulsoLoad('clusterizacao');
+}
+
+function ruasEdit(stagingAreaId){
+  const r = ruasCache.find(x => x.staging_area_id === stagingAreaId);
+  if(!r) return;
+  document.getElementById('ruas-editing-id').value = r.staging_area_id;
+  document.getElementById('ruas-f-staging-id').value = r.staging_area_id;
+  document.getElementById('ruas-f-staging-id').readOnly = true;
+  document.getElementById('ruas-f-rua').value = r.rua;
+  document.getElementById('ruas-f-capacidade').value = r.capacidade;
+  document.getElementById('ruas-f-cluster').value = r.cluster_esperado || '';
+  document.getElementById('ruas-submit-btn').innerHTML = '<i class="fas fa-check"></i> Salvar Alterações';
+  document.getElementById('ruas-cancel-edit-btn').style.display = '';
+  document.getElementById('ruas-f-rua').focus();
+}
+function ruasCancelEdit(){
+  document.getElementById('ruas-form').reset();
+  document.getElementById('ruas-editing-id').value = '';
+  document.getElementById('ruas-f-staging-id').readOnly = false;
+  document.getElementById('ruas-submit-btn').innerHTML = '<i class="fas fa-plus"></i> Adicionar Rua';
+  document.getElementById('ruas-cancel-edit-btn').style.display = 'none';
+}
+
+async function ruasSubmit(ev){
+  ev.preventDefault();
+  const editingId = document.getElementById('ruas-editing-id').value;
+  const rua = {
+    staging_area_id: document.getElementById('ruas-f-staging-id').value.trim(),
+    rua: document.getElementById('ruas-f-rua').value.trim(),
+    capacidade: document.getElementById('ruas-f-capacidade').value,
+    cluster_esperado: document.getElementById('ruas-f-cluster').value.trim(),
+  };
+  const btn = document.getElementById('ruas-submit-btn');
+  if(btn) btn.disabled = true;
+  try {
+    const r = await fetch('/api/cluster?ruas=1', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ action: editingId ? 'update' : 'create', rua }),
+    });
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.erro || 'falha ao salvar');
+    ruasCache = j.ruas;
+    ruasRenderTable();
+    ruasCancelEdit();
+    showToast(editingId ? '✓ Rua atualizada!' : '✓ Rua adicionada!');
+  } catch(err){
+    showToast('Erro: '+err.message, true);
+  } finally {
+    if(btn) btn.disabled = false;
+  }
+}
+
+async function ruasDelete(stagingAreaId){
+  const r = ruasCache.find(x => x.staging_area_id === stagingAreaId);
+  if(!r) return;
+  if(!confirm(`Excluir a rua "${r.rua}" (Staging Area ID: ${r.staging_area_id})? Essa ação não pode ser desfeita.`)) return;
+  try {
+    const resp = await fetch('/api/cluster?ruas=1', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ action:'delete', rua:{ staging_area_id: stagingAreaId } }),
+    });
+    const j = await resp.json();
+    if(!j.ok) throw new Error(j.erro || 'falha ao excluir');
+    ruasCache = j.ruas;
+    ruasRenderTable();
+    if(document.getElementById('ruas-editing-id').value === stagingAreaId) ruasCancelEdit();
+    showToast('✓ Rua excluída.');
   } catch(err){
     showToast('Erro: '+err.message, true);
   }

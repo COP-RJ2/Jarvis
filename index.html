@@ -8301,6 +8301,35 @@ async function authCheckSessao(){
     const j = await r.json();
     if(j.ok && j.user){ authEntrarOuEscolherSoc(j.user); return; }
   } catch(err){ /* sem sessão, mostra a tela de login abaixo */ }
+
+  // Auto-login invisível dentro do Workspace da SeaTalk (pedido do Roberto
+  // em 2026-09-22): SEM sessão válida ainda, e sem ter acabado de voltar de
+  // uma tentativa (senão loop infinito se a SeaTalk recusar) — redireciona
+  // direto pro OAuth oficial da SeaTalk (mesma URL que o widget usa, só que
+  // sem passar pelo componente que força o QR). O User-Agent aqui SÓ decide
+  // a EXPERIÊNCIA (pular a tela de login visível) — a segurança de verdade
+  // continua 100% no /api/auth?seatalk_callback=1 (troca o `code` pelo app
+  // secret no servidor, nunca confia em nada que o cliente mandou). Alguém
+  // forjando esse User-Agent só cai na tela de autorização REAL da SeaTalk,
+  // que exige uma sessão de verdade lá pra devolver um `code` válido.
+  const dentroDoWorkspace = /SeaTalk\//.test(navigator.userAgent);
+  const jaTentouAutoLogin = sessionStorage.getItem('jarvisAutoLoginTentado');
+  const voltouComErro = new URLSearchParams(location.search).has('erro');
+  if(dentroDoWorkspace && !jaTentouAutoLogin && !voltouComErro){
+    sessionStorage.setItem('jarvisAutoLoginTentado', '1');
+    try {
+      const r = await fetch('/api/auth?config=1');
+      const j = await r.json();
+      if(j.ok && j.appId){
+        const redirectUri = location.origin + '/api/auth?seatalk_callback=1';
+        const authorizeUrl = 'https://open.seatalk.io/open_login/?appid=' + encodeURIComponent(j.appId)
+          + '&redirect_uri=' + encodeURIComponent(redirectUri) + '&response_type=code&state=jarvis';
+        location.href = authorizeUrl;
+        return; // saindo da página — não mostra a tela de login
+      }
+    } catch(err){ /* falhou o fetch do appId, cai pra tela de login normal abaixo */ }
+  }
+
   // Só mostra a tela de login DEPOIS de confirmar que não tem sessão válida
   // (pedido do Roberto em 2026-09-15) — antes ela ficava visível por padrão
   // e "piscava" na tela pra quem já estava logado, toda vez que a página
@@ -8485,6 +8514,7 @@ document.addEventListener('click', e => {
 async function authLogout(){
   closeUserMenu();
   try { await fetch('/api/auth?logout=1', { method: 'POST' }); } catch(err){ /* segue o baile */ }
+  sessionStorage.removeItem('jarvisAutoLoginTentado'); // permite o auto-login do Workspace tentar de novo
   location.reload();
 }
 

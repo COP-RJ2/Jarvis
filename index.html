@@ -4784,7 +4784,7 @@
       <!-- Etapa 2: código de 6 dígitos recebido no SeaTalk -->
       <div id="login-step-code" style="display:none">
         <div class="login-form-title">Confirme seu acesso</div>
-        <div class="login-form-sub">Digite o código de 6 dígitos que mandamos pro seu SeaTalk (<span id="login-code-email"></span>)</div>
+        <div class="login-form-sub">Mandamos um link (toque pra entrar direto) e um código de 6 dígitos pro seu SeaTalk (<span id="login-code-email"></span>)</div>
         <div class="login-field">
           <label class="login-label">Código</label>
           <div class="login-input-wrap">
@@ -8072,6 +8072,9 @@ const SEATALK_ERROS = {
   seatalk_sem_code: 'Login cancelado ou incompleto — tenta de novo.',
   seatalk_falhou: 'Não foi possível confirmar seu login pelo SeaTalk agora. Tenta de novo em instantes.',
   dominio_nao_permitido: 'Use uma conta @shopee.com ou @shopeemobile-external.com.',
+  magic_sem_token: 'Link de acesso incompleto — solicite um novo.',
+  magic_invalido: 'Link de acesso inválido ou já usado — solicite um novo.',
+  magic_expirado: 'Link de acesso expirado — solicite um novo.',
 };
 
 function authShowError(msg){

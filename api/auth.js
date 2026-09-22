@@ -10,6 +10,13 @@
  *        POST /api/auth?request=1  { email }        -> gera e envia o código
  *        POST /api/auth?verify=1   { email, code }  -> confere e abre sessão
  *
+ *      A mesma DM também traz um LINK mágico (pedido do Roberto em
+ *      2026-09-22 — no mobile, dentro do Workspace da SeaTalk, digitar o
+ *      código exige sair e voltar pra copiar; tocar um link numa DM é uma
+ *      ação normal de chat, sem esse vai-e-volta). Token de uso único,
+ *      mesmo TTL do código:
+ *        GET /api/auth?magic=1&token=...  -> confere e abre sessão, redireciona pra "/"
+ *
  *   2) "Login with SeaTalk" (QR Code) — já habilitado por padrão, não
  *      depende de aprovação nenhuma. Front-end redireciona pro SeaTalk,
  *      volta em:
@@ -28,6 +35,7 @@
  * confirmação "Login bem-sucedido às HH:MM" (pedido do Roberto em
  * 2026-09-15) — sem bloquear a resposta, ver notificarLoginSucesso().
  */
+const crypto = require('crypto');
 const { pool } = require('../db');
 const { emailPermitido, usuarioDoEmail, nomeDoEmail, buscarWorkLocation, SOCS } = require('./_users');
 const { resolverEmployeeCodePorEmail, enviarMensagemDireta, trocarCodePorEmployee, buscarWorkLocationSeaTalk } = require('./_seatalk');
@@ -64,8 +72,26 @@ async function garantirTabelaCodigos() {
   `);
 }
 
+// Link mágico (ver comentário no topo do arquivo) — token separado da
+// tabela de código porque é de uso único por token (não por e-mail: nada
+// impede pedir 2 códigos seguidos e cada DM ter seu próprio link válido).
+async function garantirTabelaMagicLinks() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS auth_magic_links (
+      token text PRIMARY KEY,
+      email text NOT NULL,
+      expira_em timestamptz NOT NULL,
+      criado_em timestamptz NOT NULL DEFAULT now()
+    );
+  `);
+}
+
 function gerarCodigo() {
   return String(Math.floor(100000 + Math.random() * 900000)); // 6 dígitos
+}
+
+function gerarMagicToken() {
+  return crypto.randomBytes(24).toString('hex'); // 48 chars hex, não-adivinhável
 }
 
 function horaAgora() {
@@ -91,6 +117,7 @@ async function handleRequest(req, res) {
   }
 
   await garantirTabelaCodigos();
+  await garantirTabelaMagicLinks();
   const code = gerarCodigo();
   const expiraEm = new Date(Date.now() + CODIGO_TTL_MIN * 60 * 1000);
   await pool.query(
@@ -98,6 +125,13 @@ async function handleRequest(req, res) {
      ON CONFLICT (email) DO UPDATE SET code=$2, tentativas=0, expira_em=$3, criado_em=now()`,
     [email, code, expiraEm]
   );
+  const magicToken = gerarMagicToken();
+  await pool.query(
+    `INSERT INTO auth_magic_links (token, email, expira_em) VALUES ($1,$2,$3)`,
+    [magicToken, email, expiraEm]
+  );
+  const proto = req.headers['x-forwarded-proto'] || 'https';
+  const magicUrl = `${proto}://${req.headers.host}/api/auth?magic=1&token=${magicToken}`;
 
   try {
     const employeeCode = await resolverEmployeeCodePorEmail(email);
@@ -107,11 +141,15 @@ async function handleRequest(req, res) {
     }
     // Mensagem personalizada (pedido do Roberto em 2026-09-16) — mesmo
     // padrão de saudação + work location da confirmação de login, ver
-    // notificarLoginSucesso.
+    // notificarLoginSucesso. Link mágico (pedido do Roberto em 2026-09-22)
+    // junto do código — no mobile, tocar o link evita digitar/trocar de tela.
     const nome = nomeDoEmail(email);
     const workLocation = await resolverWorkLocation(employeeCode, email);
     const destino = 'Jarvis' + (workLocation ? ' - ' + workLocation : '');
-    await enviarMensagemDireta(employeeCode, `Olá ${nome}, aqui está seu código de acesso ao ${destino}: ${code}. Válido por ${CODIGO_TTL_MIN} minutos.`);
+    await enviarMensagemDireta(employeeCode,
+      `Olá ${nome}, aqui está seu acesso ao ${destino} (válido por ${CODIGO_TTL_MIN} minutos):\n\n` +
+      `Toque pra entrar direto: ${magicUrl}\n\n` +
+      `Ou digite o código na tela: ${code}`);
   } catch (err) {
     console.error('[auth] falha ao enviar via SeaTalk:', err.message);
     // Em desenvolvimento (sem credencial do SeaTalk configurada ainda),
@@ -126,6 +164,21 @@ async function handleRequest(req, res) {
   }
 
   res.status(200).json({ ok: true });
+}
+
+// Abre a sessão de servidor a partir de um e-mail já confirmado (código OU
+// link mágico já validados por quem chama) — extraído pra não duplicar entre
+// handleVerify e handleMagic. Não envia a resposta nem a notificação de
+// sucesso: quem chama decide (JSON pro código, redirect pro link mágico).
+async function abrirSessaoPorEmail(req, email) {
+  const employeeCode = await resolverEmployeeCodePorEmail(email).catch(() => null);
+  const user = usuarioDoEmail(email);
+  user.workLocation = await resolverWorkLocation(employeeCode, email);
+  // SoC ainda não escolhido (pedido do Roberto em 2026-09-21) — o front
+  // mostra a tela de seleção antes de entrar no portal quando isso vem nulo.
+  user.soc = null;
+  req.session.user = user;
+  return { user, employeeCode };
 }
 
 async function handleVerify(req, res) {
@@ -160,14 +213,30 @@ async function handleVerify(req, res) {
   }
 
   await pool.query('DELETE FROM auth_codes WHERE email = $1', [email]);
-  const employeeCode = await resolverEmployeeCodePorEmail(email).catch(() => null);
-  const user = usuarioDoEmail(email);
-  user.workLocation = await resolverWorkLocation(employeeCode, email);
-  // SoC ainda não escolhido (pedido do Roberto em 2026-09-21) — o front
-  // mostra a tela de seleção antes de entrar no portal quando isso vem nulo.
-  user.soc = null;
-  req.session.user = user;
+  const { user, employeeCode } = await abrirSessaoPorEmail(req, email);
   res.status(200).json({ ok: true, user });
+
+  notificarLoginSucesso(employeeCode, user.name, user.workLocation);
+}
+
+// Link mágico (ver comentário no topo do arquivo) — token de uso único,
+// mesma validação de expiração do código. GET (não POST) porque é aberto
+// direto de um link tocado na DM, não de um form submetido pelo front.
+async function handleMagic(req, res) {
+  const token = String(req.query.token || '').trim();
+  if (!token) { res.redirect('/?erro=magic_sem_token'); return; }
+
+  await garantirTabelaMagicLinks();
+  const { rows } = await pool.query('SELECT * FROM auth_magic_links WHERE token = $1', [token]);
+  const registro = rows[0];
+  if (!registro) { res.redirect('/?erro=magic_invalido'); return; }
+  // Apaga já na conferência (uso único, mesmo se expirado) — evita reuso do
+  // mesmo link mesmo que alguém tente de novo com o link expirado.
+  await pool.query('DELETE FROM auth_magic_links WHERE token = $1', [token]);
+  if (new Date(registro.expira_em) < new Date()) { res.redirect('/?erro=magic_expirado'); return; }
+
+  const { user, employeeCode } = await abrirSessaoPorEmail(req, registro.email);
+  res.redirect('/');
 
   notificarLoginSucesso(employeeCode, user.name, user.workLocation);
 }
@@ -255,6 +324,10 @@ module.exports = async (req, res) => {
     }
     if (req.query.seatalk_callback !== undefined) {
       await handleCallback(req, res);
+      return;
+    }
+    if (req.query.magic !== undefined) {
+      await handleMagic(req, res);
       return;
     }
     if (req.query.logout !== undefined) {

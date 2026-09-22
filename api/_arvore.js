@@ -487,6 +487,29 @@ function diaDaSemana(iso) {
 const ehData = v => /^\d{4}-\d{2}-\d{2}$/.test(v);
 const ehSemana = v => /^W\d+$/.test(v);
 
+// Quebra por turno (pedido do Roberto em 2026-08-13, mockup "arvore-kpis"
+// bundle): dentro do mesmo Bloco/PIC/Sub Bloco, se existir KPI nomeado
+// exatamente T1/T2/T3/T4, o KPI "Total" desse mesmo grupo ganha turnoRefs
+// apontando pros ids — usado no drawer pra montar a tabela "Por turno". Só o
+// "Total" recebe (não qualquer KPI não-T1-4 do grupo). Extraída (pedido do
+// Roberto em 2026-09-22) pra ser reaproveitada por buildArvoreDoBanco
+// (Postgres) — mesma regra pura, não depende de vir do Sheets ou do banco.
+function aplicarTurnoRefs(kpis) {
+  const grupos = new Map(); // bloco|pic|sub -> kpis do grupo
+  kpis.forEach(k => {
+    const chaveGrupo = [k.bloco, k.pic, k.subBloco].join('|');
+    if (!grupos.has(chaveGrupo)) grupos.set(chaveGrupo, []);
+    grupos.get(chaveGrupo).push(k);
+  });
+  grupos.forEach(grupo => {
+    const turnos = {};
+    grupo.forEach(k => { if (/^T[1-4]$/.test(k.kpi)) turnos[k.kpi] = k.id; });
+    if (!Object.keys(turnos).length) return;
+    const total = grupo.find(k => k.kpi === 'Total');
+    if (total) total.turnoRefs = turnos;
+  });
+}
+
 async function buildArvore() {
   const { rows } = await fetchTabByGid(ARVORE_SHEET.spreadsheetId, ARVORE_SHEET.gid);
 
@@ -654,27 +677,7 @@ async function buildArvore() {
     }
   }
 
-  // Quebra por turno (pedido do Roberto em 2026-08-13, mockup "arvore-kpis"
-  // bundle): dentro do mesmo Bloco/PIC/Sub Bloco, se existir KPI nomeado
-  // exatamente T1/T2/T3/T4, o KPI "Total" desse mesmo grupo ganha turnoRefs
-  // apontando pros ids — usado no drawer pra montar a tabela "Por turno".
-  // Só o "Total" recebe (não qualquer KPI não-T1-4 do grupo): um Sub Bloco
-  // como ABS tem várias métricas diferentes além de Total/T1-T4 (% Aderência,
-  // Entrevista, etc.) — anexar turnoRefs nelas mostraria os valores de T1-T4
-  // do ABS dentro do drawer de uma métrica sem relação nenhuma com turno.
-  const grupos = new Map(); // bloco|pic|sub -> kpis do grupo
-  kpis.forEach(k => {
-    const chaveGrupo = [k.bloco, k.pic, k.subBloco].join('|');
-    if (!grupos.has(chaveGrupo)) grupos.set(chaveGrupo, []);
-    grupos.get(chaveGrupo).push(k);
-  });
-  grupos.forEach(grupo => {
-    const turnos = {};
-    grupo.forEach(k => { if (/^T[1-4]$/.test(k.kpi)) turnos[k.kpi] = k.id; });
-    if (!Object.keys(turnos).length) return;
-    const total = grupo.find(k => k.kpi === 'Total');
-    if (total) total.turnoRefs = turnos;
-  });
+  aplicarTurnoRefs(kpis);
 
   return {
     meta: {
@@ -772,4 +775,352 @@ async function freezeArvoreAll() {
   return { totalRows: total };
 }
 
-module.exports = { buildArvore, writeArvoreValores, freezeArvoreAll };
+// ============================================================================
+// Postgres multi-SoC (pedido do Roberto em 2026-09-22) — mesmo shape de
+// buildArvore() acima, mas lendo de_para_arvore_kpis + arvore_valores
+// (db/schema_multi_soc.sql) em vez da planilha árvore_pulso. RJ2 já foi
+// migrado (139 KPIs / 25.275 valores, ordem/target/unidade/polaridade/
+// memoria_calculo/agg_ref_* já resolvidos linha a linha no backfill — não
+// precisa mais de ARVORE_META/metaHeuristica/ARVORE_AGREGACAO aqui). RJ6/
+// SC1/SC2 começam vazios (0 KPIs) até alguém cadastrar via "+ Adicionar KPI"
+// (adicionarArvoreKpi abaixo) — front já trata `kpis: []` sem quebrar
+// (mesmo caminho de "nenhum KPI encontrado" usado pelos filtros).
+//
+// O que NÃO precisa ser recalculado aqui (já veio resolvido do backfill,
+// que rodou buildArvore() uma vez e gravou o resultado):
+//   - KPI_CALCULADOS (série diária dos 3 KPIs de fórmula): os valores
+//     calculados já estão gravados em arvore_valores linha a linha.
+//   - ARVORE_TARGET_HERDADO (Produtividade Real herdando target da
+//     Planejada): target/targetRaw já vieram corretos por KPI no backfill.
+//   - Reposicionamento do "Packed" entre Triagem e ABS: `ordem` já reflete
+//     a posição corrigida (backfill numerou pela ordem final do array).
+//   - aggRefs (ARVORE_AGREGACAO_FORMULA): agora são colunas de verdade
+//     (agg_ref_numerador/agg_ref_denominador), não precisa resolver por nome.
+//
+// O que CONTINUA sendo pós-processamento puro, recalculado a cada leitura
+// (não dá pra "baking" isso num backfill — depende do conjunto de KPIs
+// atual, que muda toda vez que alguém cadastra um novo):
+//   - turnoRefs (aplicarTurnoRefs acima).
+//   - weeks/days: a coluna "Semana" da planilha (calendário dia->semana)
+//     NÃO foi migrada — arvore_valores só guarda periodo (data OU rótulo de
+//     semana) + valor, sem essa metade do de-para. Sem ela não dá pra saber
+//     que dia caía em qual "W7" histórica. Solução: calcula a semana do ano
+//     (Dom-Sáb, mesma convenção de DIA_SEMANA) a partir da própria data —
+//     autoconsistente, sempre agrupa os dias certos, só não reproduz
+//     necessariamente o MESMO rótulo "W7" que a planilha usava pra aquela
+//     semana (achado ao portar; sinalizado no relatório final).
+function semanaDoAno(iso) {
+  const d = new Date(iso + 'T12:00:00Z');
+  const ano = d.getUTCFullYear();
+  const jan1 = new Date(Date.UTC(ano, 0, 1));
+  const inicioSemana1 = new Date(jan1);
+  inicioSemana1.setUTCDate(jan1.getUTCDate() - jan1.getUTCDay());
+  const diffDias = Math.floor((d - inicioSemana1) / 86400000);
+  return 'W' + (Math.floor(diffDias / 7) + 1);
+}
+
+async function buildArvoreDoBanco(soc) {
+  const { pool } = require('../db');
+  const [{ rows: kpiRows }, { rows: valorRows }] = await Promise.all([
+    pool.query('SELECT * FROM de_para_arvore_kpis WHERE soc = $1 ORDER BY ordem NULLS LAST, kpi_id', [soc]),
+    pool.query('SELECT * FROM arvore_valores WHERE soc = $1', [soc]),
+  ]);
+
+  const kpiPorId = new Map();
+  const blocos = [];
+  kpiRows.forEach(r => {
+    if (r.bloco && !blocos.includes(r.bloco)) blocos.push(r.bloco);
+    const k = {
+      id: r.kpi_id,
+      bloco: r.bloco, pic: r.pic, subBloco: r.sub_bloco, kpi: r.kpi,
+      fonte: r.fonte || '',
+      unit: r.unidade, polarity: r.polaridade,
+      target: r.target === null ? null : Number(r.target),
+      targetRaw: r.target_raw || '',
+      memoriaCalculo: r.memoria_calculo || null,
+      valores: {}, obs: {},
+    };
+    if (r.agg_ref_numerador && r.agg_ref_denominador) {
+      k.aggRefs = { numeradorId: r.agg_ref_numerador, denominadorId: r.agg_ref_denominador };
+    }
+    kpiPorId.set(r.kpi_id, k);
+  });
+
+  const diasComDado = new Set();
+  const todasDatas = new Set();
+  valorRows.forEach(r => {
+    const k = kpiPorId.get(r.kpi_id);
+    if (!k) return; // linha órfã (kpi_id sem de-para) — não deveria acontecer, FK garante
+    const periodo = String(r.periodo || '').trim();
+    if (!periodo) return;
+    if (ehData(periodo)) todasDatas.add(periodo);
+    if (r.valor !== null && r.valor !== undefined) {
+      k.valores[periodo] = Number(r.valor);
+      if (ehData(periodo)) diasComDado.add(periodo);
+    }
+    if (r.observacao) k.obs[periodo] = r.observacao;
+  });
+
+  const diasOrdenados = [...diasComDado].sort();
+  const lastRealDate = diasOrdenados[diasOrdenados.length - 1] || null;
+
+  const days = [...todasDatas].sort()
+    .filter(iso => !lastRealDate || iso <= lastRealDate)
+    .map(iso => ({ iso, wk: semanaDoAno(iso), wd: diaDaSemana(iso) }));
+
+  const ordemSemana = s => parseInt(s.slice(1), 10);
+  const labelsSemana = [...new Set(days.map(d => d.wk))].sort((a, b) => ordemSemana(a) - ordemSemana(b));
+  const weeks = labelsSemana.map(label => {
+    const dias = days.filter(d => d.wk === label).map(d => d.iso).sort();
+    return {
+      label,
+      startIso: dias[0] || null,
+      endIso: dias[dias.length - 1] || null,
+      hasRealData: dias.some(iso => diasComDado.has(iso)),
+    };
+  }).filter(w => w.startIso);
+
+  const comDado = weeks.filter(w => w.hasRealData);
+  const refWeeks = comDado.slice(-2).map(w => w.label);
+
+  const kpis = [...kpiPorId.values()];
+  aplicarTurnoRefs(kpis);
+
+  return {
+    meta: {
+      fonte: 'POSTGRES',
+      lastRealDate,
+      refWeeks,
+      atualizadoEm: new Date().toISOString(),
+    },
+    blocks: blocos,
+    weeks,
+    days,
+    kpis,
+  };
+}
+
+// "+ Adicionar KPI" (pedido do Roberto em 2026-09-22) — cadastra 1 linha em
+// de_para_arvore_kpis pro soc da sessão. NÃO cria linhas em arvore_valores
+// pro KPI novo — diferente do modelo antigo da planilha (ano inteiro
+// pré-criado com "-"), arvore_valores é esparsa por design: só existe linha
+// quando alguém realmente digita um valor (writeArvoreValores/preenchimento
+// manual, fora do escopo desta função). Pular esse passo é o comportamento
+// CORRETO da nova arquitetura, não uma omissão.
+const MEMORIA_CALCULO_VALIDAS = new Set(['soma', 'media', 'maximo', 'media_sem_domingo', 'formula_diff_pct']);
+
+function gerarKpiId() {
+  return 'k' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+// Fractional indexing: calcula a posição (ordem) do KPI novo a partir dos
+// nomes digitados em "Abaixo do KPI"/"Acima do KPI" (seção 4 do pedido).
+// `todos` = KPIs já cadastrados no soc, ordenados por ordem (qualquer
+// ordem serve, a função não assume nada sobre a entrada). Casamento por
+// nome é case-insensitive/trim contra o campo `kpi` — não bloqueia o
+// cadastro se não achar, só cai no padrão (fim da lista) e avisa.
+function calcularOrdem(todos, abaixoNome, acimaNome) {
+  const norm = s => String(s || '').trim().toLowerCase();
+  const acharPor = nome => {
+    if (!norm(nome)) return null;
+    return todos.find(k => norm(k.kpi) === norm(nome)) || null;
+  };
+  const kAbaixo = acharPor(abaixoNome); // novo entra logo ABAIXO deste
+  const kAcima = acharPor(acimaNome);   // novo entra logo ACIMA deste
+  const avisos = [];
+  if (abaixoNome && norm(abaixoNome) && !kAbaixo) avisos.push(`KPI de referência "${abaixoNome}" (Abaixo do KPI) não encontrado`);
+  if (acimaNome && norm(acimaNome) && !kAcima) avisos.push(`KPI de referência "${acimaNome}" (Acima do KPI) não encontrado`);
+
+  const ordemDe = k => Number(k.ordem);
+  const ordenados = [...todos].filter(k => k.ordem !== null && k.ordem !== undefined).sort((a, b) => ordemDe(a) - ordemDe(b));
+
+  if (kAbaixo && kAcima) {
+    return { ordem: (ordemDe(kAbaixo) + ordemDe(kAcima)) / 2, avisos };
+  }
+  if (kAbaixo) {
+    const idx = ordenados.findIndex(k => k.kpi_id === kAbaixo.kpi_id);
+    const proximo = idx >= 0 ? ordenados[idx + 1] : null;
+    return { ordem: proximo ? (ordemDe(kAbaixo) + ordemDe(proximo)) / 2 : ordemDe(kAbaixo) + 1, avisos };
+  }
+  if (kAcima) {
+    const idx = ordenados.findIndex(k => k.kpi_id === kAcima.kpi_id);
+    const anterior = idx > 0 ? ordenados[idx - 1] : null;
+    return { ordem: anterior ? (ordemDe(anterior) + ordemDe(kAcima)) / 2 : ordemDe(kAcima) - 1, avisos };
+  }
+  // Nenhuma referência (ou nenhuma encontrada) -> fim da lista.
+  const maiorOrdem = ordenados.length ? ordemDe(ordenados[ordenados.length - 1]) : -1;
+  return { ordem: maiorOrdem + 1, avisos };
+}
+
+async function adicionarArvoreKpi(soc, payload) {
+  const { pool } = require('../db');
+
+  const bloco = String(payload.bloco || '').trim();
+  const pic = String(payload.pic || '').trim();
+  const subBloco = String(payload.subBloco || '').trim();
+  const kpiNome = String(payload.kpi || '').trim();
+  const targetRaw = String(payload.target || '').trim();
+  const formulaDescricao = String(payload.formulaDescricao || payload.memoriaCalculoTexto || '').trim();
+  const memoriaCalculo = String(payload.memoriaCalculo || '').trim();
+  const corVerde = String(payload.corVerde || '').trim();
+  const corVermelho = String(payload.corVermelho || '').trim();
+
+  const faltando = [];
+  if (!bloco) faltando.push('Bloco');
+  if (!pic) faltando.push('PIC');
+  if (!subBloco) faltando.push('Sub Bloco');
+  if (!kpiNome) faltando.push('KPI');
+  if (!targetRaw) faltando.push('Target');
+  if (!formulaDescricao) faltando.push('Memória de Cálculo');
+  if (!corVerde) faltando.push('Formatação Condicional (verde)');
+  if (!corVermelho) faltando.push('Formatação Condicional (vermelho)');
+  if (faltando.length) {
+    return { ok: false, erro: `Campo(s) obrigatório(s) não preenchido(s): ${faltando.join(', ')}.` };
+  }
+  if (!MEMORIA_CALCULO_VALIDAS.has(memoriaCalculo)) {
+    return { ok: false, erro: 'Selecione como consolidar na semana (Memória de Cálculo).' };
+  }
+
+  // corVerde/corVermelho: 'acima' | 'abaixo' (do target) — define a
+  // polaridade. Só o verde decide (pedido do Roberto, seção 3.2): verde
+  // "Acima do target" -> higher_better, verde "Abaixo do target" -> lower_better.
+  const polaridade = corVerde === 'abaixo' ? 'lower_better' : 'higher_better';
+
+  const target = num(targetRaw);
+  // Unidade não é um campo pedido no formulário (seção 2 do pedido não tem
+  // "Unidade") — inferida do texto do Target, mesmo heurístico usado pro
+  // KPI vindo da planilha (metaHeuristica acima): tem "%" -> percent.
+  const unidade = /%/.test(targetRaw) ? 'percent' : 'number';
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Duplicado: mesmo soc+bloco+pic+sub_bloco+kpi, case-insensitive/trim.
+    const dup = await client.query(
+      `SELECT 1 FROM de_para_arvore_kpis
+        WHERE soc = $1 AND lower(trim(bloco)) = lower($2) AND lower(trim(pic)) = lower($3)
+          AND lower(trim(sub_bloco)) = lower($4) AND lower(trim(kpi)) = lower($5)
+        LIMIT 1`,
+      [soc, bloco, pic, subBloco, kpiNome]
+    );
+    if (dup.rows.length) {
+      await client.query('ROLLBACK');
+      return { ok: false, erro: 'Este KPI já está cadastrado.' };
+    }
+
+    const todos = (await client.query(
+      'SELECT kpi_id, kpi, ordem FROM de_para_arvore_kpis WHERE soc = $1',
+      [soc]
+    )).rows;
+    const { ordem, avisos } = calcularOrdem(todos, payload.abaixoDoKpi, payload.acimaDoKpi);
+
+    const kpiId = gerarKpiId();
+    try {
+      await client.query(
+        `INSERT INTO de_para_arvore_kpis
+           (soc, kpi_id, bloco, pic, sub_bloco, kpi, unidade, polaridade, target, target_raw,
+            memoria_calculo, ordem, formula_descricao, atualizado_em)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13, now())`,
+        [soc, kpiId, bloco, pic, subBloco, kpiNome, unidade, polaridade, target, targetRaw,
+          memoriaCalculo, ordem, formulaDescricao]
+      );
+    } catch (err) {
+      // Corrida entre 2 requests simultâneos (checagem acima não é atômica
+      // sozinha) — índice único auxiliar (db/migracao_dedup_arvore_kpis.sql)
+      // cobre isso: violação vira o mesmo erro amigável, não um 502 cru.
+      if (err.code === '23505') {
+        await client.query('ROLLBACK');
+        return { ok: false, erro: 'Este KPI já está cadastrado.' };
+      }
+      throw err;
+    }
+
+    await client.query('COMMIT');
+    return { ok: true, kpiId, ordem, avisos };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+// Preenchimento manual, versão Postgres (pedido do Roberto em 2026-09-22,
+// fechando o mesmo dia da migração pra multi-SoC) — o botão "Preencher
+// dados" (FillDataModal, arvore.html) manda exatamente o mesmo formato de
+// entries de sempre; só troca o destino da gravação, já que a árvore lida
+// (buildArvoreDoBanco acima) não vem mais do Sheets. Sem isso o botão
+// continuaria gravando na planilha enquanto a tela lê do Postgres — os dois
+// mundos parando de se falar silenciosamente, quebrando o preenchimento
+// manual sem avisar ninguém.
+//
+// Diferente de writeArvoreValores (Sheets, ano inteiro pré-criado, precisa
+// do placeholder "-" pra distinguir "vazio de propósito" de "nunca
+// preenchido"): arvore_valores é esparsa, célula sem valor simplesmente não
+// tem linha — não existe "-" aqui, célula vazia só significa "não mexe".
+async function writeArvoreValoresDoBanco(soc, entries) {
+  const { pool } = require('../db');
+  const { rows: kpiRows } = await pool.query(
+    'SELECT kpi_id, bloco, pic, sub_bloco, kpi FROM de_para_arvore_kpis WHERE soc = $1',
+    [soc]
+  );
+  const idPorChave = new Map();
+  kpiRows.forEach(r => {
+    const chave = [r.bloco || '', r.pic || '', r.sub_bloco || '', r.kpi || ''].join('|');
+    idPorChave.set(chave, r.kpi_id);
+  });
+
+  let escritos = 0;
+  const naoEncontrados = [];
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    for (const e of entries) {
+      const chave = [e.bloco || '', e.pic || '', e.subBloco || '', e.kpi || ''].join('|');
+      const kpiId = idPorChave.get(chave);
+      const periodo = String(e.data || '').trim();
+      if (!kpiId || !periodo) { naoEncontrados.push(chave + '|' + periodo); continue; }
+
+      const digitado = String(e.valor == null ? '' : e.valor).trim();
+      const comentario = String(e.observacao == null ? '' : e.observacao).trim();
+      // Valor precisa virar número de verdade (a coluna é numeric, diferente
+      // da célula-texto do Sheets) — texto não parseável equivale a "vazio",
+      // não escreve (mesmo espírito do num() usado no resto do arquivo).
+      const valorNum = digitado !== '' ? num(digitado) : null;
+
+      if (valorNum === null && comentario === '') continue; // nada pra gravar nessa célula
+
+      if (valorNum !== null) {
+        await client.query(
+          `INSERT INTO arvore_valores (soc, kpi_id, periodo, valor, observacao, atualizado_em)
+           VALUES ($1,$2,$3,$4, NULLIF($5,''), now())
+           ON CONFLICT (soc, kpi_id, periodo) DO UPDATE SET
+             valor = EXCLUDED.valor,
+             observacao = COALESCE(NULLIF($5,''), arvore_valores.observacao),
+             atualizado_em = now()`,
+          [soc, kpiId, periodo, valorNum, comentario]
+        );
+      } else {
+        await client.query(
+          `INSERT INTO arvore_valores (soc, kpi_id, periodo, valor, observacao, atualizado_em)
+           VALUES ($1,$2,$3, NULL, $4, now())
+           ON CONFLICT (soc, kpi_id, periodo) DO UPDATE SET
+             observacao = EXCLUDED.observacao,
+             atualizado_em = now()`,
+          [soc, kpiId, periodo, comentario]
+        );
+      }
+      escritos++;
+    }
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+  return { escritos, naoEncontrados };
+}
+
+module.exports = { buildArvore, writeArvoreValores, freezeArvoreAll, buildArvoreDoBanco, adicionarArvoreKpi, writeArvoreValoresDoBanco };

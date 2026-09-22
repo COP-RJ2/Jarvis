@@ -39,7 +39,7 @@
  */
 const { fetchTabByGid, fetchTabRawValues, updateRangeRaw, readRange, writeRange, ensureSheetExists } = require('./_google');
 const { toNum, dataOperacionalDe, hojeOperacionalIso } = require('./_period');
-const { buildArvore, writeArvoreValores, freezeArvoreAll } = require('./_arvore');
+const { buildArvore, writeArvoreValores, freezeArvoreAll, buildArvoreDoBanco, adicionarArvoreKpi, writeArvoreValoresDoBanco } = require('./_arvore');
 
 // Planejamento de capacidade (labor_pulso) — inline em vez de um endpoint
 // próprio (api/labor.js): Overview é o único consumidor hoje, e o limite de
@@ -1162,8 +1162,32 @@ module.exports = async (req, res) => {
         res.status(400).json({ ok: false, erro: 'entries obrigatório' });
         return;
       }
-      const resultado = await writeArvoreValores(entries);
+      // Postgres, não mais Sheets (pedido do Roberto em 2026-09-22) — a
+      // árvore lida (?arvore=1 abaixo) já vem só de buildArvoreDoBanco, o
+      // preenchimento manual precisa gravar no mesmo lugar que ela lê,
+      // senão o botão "Preencher dados" parece funcionar mas o valor nunca
+      // aparece na tela.
+      const soc = (req.session.user && req.session.user.soc) || 'RJ2';
+      const resultado = await writeArvoreValoresDoBanco(soc, entries);
       res.status(200).json({ ok: true, ...resultado });
+    } catch (err) {
+      res.status(502).json({ ok: false, erro: err.message });
+    }
+    return;
+  }
+  // "+ Adicionar KPI" (?arvore=1&addkpi=1, POST) — cadastra 1 KPI novo em
+  // de_para_arvore_kpis pro SoC da sessão (ver adicionarArvoreKpi,
+  // api/_arvore.js). Curto-circuita antes do GET normal, mesmo padrão de
+  // write/freeze acima.
+  if (req.query.arvore !== undefined && req.query.addkpi !== undefined) {
+    if (req.method !== 'POST') {
+      res.status(405).json({ ok: false, erro: 'Use POST' });
+      return;
+    }
+    try {
+      const soc = (req.session.user && req.session.user.soc) || 'RJ2';
+      const resultado = await adicionarArvoreKpi(soc, req.body || {});
+      res.status(resultado.ok ? 200 : 400).json(resultado);
     } catch (err) {
       res.status(502).json({ ok: false, erro: err.message });
     }
@@ -1171,12 +1195,19 @@ module.exports = async (req, res) => {
   }
   if (req.query.arvore !== undefined) {
     try {
-      const dados = await buildArvore();
-      // ?_fresh=... (arvore.html manda isso logo após "Preencher dados"
-      // salvar e recarregar a página) pula o cache do CDN — sem isso o
+      // Leitura ao vivo do Postgres, multi-SoC (pedido do Roberto em
+      // 2026-09-22) — substitui buildArvore() (Sheets, só RJ2) pra todo
+      // mundo. RJ6/SC1/SC2 legitimamente voltam com kpis: [] até alguém
+      // cadastrar via "+ Adicionar KPI". buildArvore()/writeArvoreValores()/
+      // freezeArvoreAll() continuam existindo (branches acima) mas nada os
+      // chama mais a partir daqui — não removidos, fora do escopo.
+      const soc = (req.session.user && req.session.user.soc) || 'RJ2';
+      const dados = await buildArvoreDoBanco(soc);
+      // ?_fresh=... (arvore.html manda isso logo após "Preencher dados" ou
+      // "Salvar KPI" recarregar a página) pula o cache do CDN — sem isso o
       // reload caía dentro da janela de 5min e mostrava o valor antigo,
-      // parecendo que o preenchimento não tinha funcionado (achado pelo
-      // Roberto em 2026-08-17).
+      // parecendo que a gravação não tinha funcionado (achado pelo Roberto
+      // em 2026-08-17).
       if (req.query._fresh !== undefined) {
         res.setHeader('Cache-Control', 'no-store');
       } else {

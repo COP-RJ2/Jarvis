@@ -931,10 +931,24 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
     return RAW.meta.refWeeks;
   }
   function getDefaultDate() {
-    return RAW.meta.lastRealDate;
+    // SoC sem nenhum dado ainda (RJ6/SC1/SC2 recém-abertos no Postgres,
+    // pedido do Roberto em 2026-09-22) -> lastRealDate vem null. Selecionar
+    // "hoje" como fallback evita propagar null pra selectedIso (usado por
+    // ".split"/".slice" em vários componentes que assumem ISO válido —
+    // antes disso nunca acontecia, buildArvore() sobre a planilha sempre
+    // tinha pelo menos 1 dia com dado real).
+    return RAW.meta.lastRealDate || new Date().toISOString().slice(0, 10);
   }
   function getDateBounds() {
     const days = RAW.days;
+    // SoC sem nenhum KPI/valor ainda (pedido do Roberto em 2026-09-22, RJ6/
+    // SC1/SC2 recém-abertos no Postgres) -> days vem vazio; sem isso o date
+    // picker quebrava a tela inteira (days[0] undefined). Usa hoje como
+    // min/max degenerado — não há intervalo real, mas a tela continua de pé.
+    if (!days.length) {
+      const hoje = new Date().toISOString().slice(0, 10);
+      return { min: hoje, max: hoje };
+    }
     return { min: days[0].iso, max: days[days.length - 1].iso };
   }
 
@@ -1123,6 +1137,7 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
     Edit: (p) => <Icon {...p}><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></Icon>,
     Save: (p) => <Icon {...p}><path d="M5 3h11l3 3v15H5V3Z" /><path d="M8 3v6h8V3" /><path d="M8 21v-7h8v7" /></Icon>,
     MessageSquare: (p) => <Icon {...p}><path d="M4 4h16v12H8l-4 4V4Z" /></Icon>,
+    Plus: (p) => <Icon {...p}><path d="M12 5v14M5 12h14" /></Icon>,
   };
 
   window.Icons = Icons;
@@ -1517,7 +1532,7 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
 (function () {
   const { useState } = React;
 
-  function Header({ selectedIso, onDateChange, onOpenFillData }) {
+  function Header({ selectedIso, onDateChange, onOpenFillData, onOpenAddKpi }) {
     const [refreshState, setRefreshState] = useState("idle"); // idle | loading | done
     const [updatedAt, setUpdatedAt] = useState(new Date());
     const [toast, setToast] = useState(null);
@@ -1548,9 +1563,17 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
 
         <div className="flex items-center gap-3">
           <button
+            onClick={onOpenAddKpi}
+            data-tip="Cadastrar um novo KPI na árvore"
+            className="flex items-center gap-1.5 rounded-lg border border-white/30 bg-white/10 hover:bg-white/20 transition-colors px-3 py-1.5 text-xs font-medium"
+          >
+            <Icons.Plus size={13} /> Adicionar KPI
+          </button>
+
+          <button
             onClick={onOpenFillData}
             data-tip="Preencher dados manualmente"
-            className="flex items-center gap-1.5 rounded-lg border border-white/30 bg-white/10 hover:bg-white/20 transition-colors px-3 py-1.5 text-xs font-medium"
+            className="hidden md:flex items-center gap-1.5 rounded-lg border border-white/30 bg-white/10 hover:bg-white/20 transition-colors px-3 py-1.5 text-xs font-medium"
           >
             <Icons.Edit size={13} /> Preencher dados
           </button>
@@ -2593,6 +2616,234 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
 
   window.Components = window.Components || {};
   window.Components.FillDataModal = FillDataModal;
+})();
+
+</script>
+<script type="text/babel" data-presets="react">
+// components/AddKpiModal.js — "+ Adicionar KPI" (pedido do Roberto em
+// 2026-09-22): cadastra 1 linha nova em de_para_arvore_kpis pro SoC da
+// sessão atual (POST /api/overview?arvore=1&addkpi=1, ver
+// adicionarArvoreKpi em api/_arvore.js). NÃO cria linhas em arvore_valores
+// pro ano inteiro — arvore_valores é esparsa por design (só existe linha
+// quando alguém digita um valor de verdade), diferente do modelo antigo da
+// planilha. Mesma estrutura visual do FillDataModal acima (modal com
+// header/corpo rolável/rodapé de ações).
+(function () {
+  const { useState, useMemo } = React;
+
+  const BLOCO_OPCOES = ["Pessoas", "Inventário", "Planejamento", "Inbound", "Máquina", "Sorter", "Esteira", "Outbound", "Auditoria", "RETURNS"];
+  const PIC_OPCOES = ["Ingryd (HSE)", "COP", "Diogo (INV)", "Rodrigo (PCP)", "PCM"];
+  const SUB_BLOCO_OPCOES = ["ACA", "PS", "HSE", "ABS", "Stuck Received (Inbound)", "Stuck Packed/Packing (Outbound)", "Inventário", "Forecast", "Planejamento", "Aderência", "LH", "FM", "QB", "Triagem", "Rejeito", "Automação", "Sorter", "Esteira", "Outbound", "Mis", "EHA | RETURNS", "Packed"];
+  // "Como consolidar na semana" — enum de verdade que aggregatePeriod (ver
+  // arvore.html, componente KPITable/utils de agregação) usa pra fechar o
+  // resultado da semana. Diferente da Memória de Cálculo em texto livre
+  // logo acima no formulário: aquela é só explicação pra quem lê a tela,
+  // essa é o tipo de conta que o sistema roda de verdade — por isso os 2
+  // campos existem separados (formula_descricao vs memoria_calculo no banco).
+  const MEMORIA_CALCULO_OPCOES = [
+    { value: "media", label: "Média" },
+    { value: "soma", label: "Soma" },
+    { value: "maximo", label: "Máximo" },
+    { value: "media_sem_domingo", label: "Média sem domingo" },
+    { value: "formula_diff_pct", label: "Fórmula de diferença %" },
+  ];
+  const COR_OPCOES = [
+    { value: "acima", label: "Acima do target" },
+    { value: "abaixo", label: "Abaixo do target" },
+  ];
+
+  const CAMPO_LABEL = {
+    bloco: "Bloco", pic: "PIC", subBloco: "Sub Bloco", kpi: "KPI", target: "Target",
+    formulaDescricao: "Memória de Cálculo", corVerde: "Formatação Condicional (verde)", corVermelho: "Formatação Condicional (vermelho)",
+  };
+
+  function AddKpiModal({ onClose }) {
+    const [form, setForm] = useState({
+      bloco: "", pic: "", subBloco: "", kpi: "", target: "",
+      formulaDescricao: "", memoriaCalculo: "media", corVerde: "", corVermelho: "",
+      abaixoDoKpi: "", acimaDoKpi: "",
+    });
+    const [saving, setSaving] = useState(false);
+    const [result, setResult] = useState(null); // { ok, message }
+
+    const nomesKpisExistentes = useMemo(
+      () => [...new Set(DataService.getKPIs().map((k) => k.kpi).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR")),
+      []
+    );
+
+    function set(campo, valor) {
+      setForm((f) => ({ ...f, [campo]: valor }));
+      setResult(null);
+    }
+
+    function validar() {
+      const faltando = ["bloco", "pic", "subBloco", "kpi", "target", "formulaDescricao", "corVerde", "corVermelho"]
+        .filter((campo) => !String(form[campo] || "").trim());
+      if (faltando.length) return `Preencha o campo obrigatório: ${faltando.map((c) => CAMPO_LABEL[c]).join(", ")}.`;
+      return null;
+    }
+
+    async function handleSave() {
+      if (saving) return;
+      const erro = validar();
+      if (erro) { setResult({ ok: false, message: erro }); return; }
+
+      setSaving(true);
+      setResult(null);
+      try {
+        const r = await fetch("/api/overview?arvore=1&addkpi=1", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(form),
+        });
+        const j = await r.json();
+        if (!j.ok) throw new Error(j.erro || "Falha ao salvar");
+        const avisoRefs = (j.avisos && j.avisos.length) ? ` (${j.avisos.join("; ")} — usada a posição padrão)` : "";
+        setResult({ ok: true, message: `KPI cadastrado com sucesso e adicionado à árvore.${avisoRefs}` });
+        // Mesmo mecanismo de reload do FillDataModal (cache-buster _fresh) —
+        // a árvore recarrega já com o KPI novo na posição certa.
+        setTimeout(() => { window.location.href = window.location.pathname + "?_fresh=" + Date.now(); }, 1400);
+      } catch (err) {
+        setResult({ ok: false, message: err.message });
+      } finally {
+        setSaving(false);
+      }
+    }
+
+    const inputCls = "w-full rounded-lg border border-neutral-300 px-3 py-1.5 text-sm bg-white";
+    const labelCls = "block text-[11px] font-medium text-neutral-500 mb-1";
+
+    return (
+      <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-4" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+        <div className="anim-pop bg-white rounded-xl shadow-panel w-full max-w-xl max-h-[90vh] flex flex-col" onMouseDown={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-neutral-100 shrink-0">
+            <div className="flex items-center gap-2.5">
+              <div className="h-8 w-8 rounded-lg bg-brand/10 text-brand flex items-center justify-center"><Icons.Plus size={16} /></div>
+              <div>
+                <h3 className="text-[15px] font-bold text-neutral-800">Adicionar novo KPI</h3>
+                <div className="text-[11px] text-neutral-400">Cadastra 1 KPI na árvore deste SoC</div>
+              </div>
+            </div>
+            <button onClick={onClose} className="p-1.5 rounded-full hover:bg-neutral-100 text-neutral-500"><Icons.X size={18} /></button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+            <div>
+              <div className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wide mb-2">Informações do KPI</div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelCls}>Bloco *</label>
+                  <select value={form.bloco} onChange={(e) => set("bloco", e.target.value)} className={inputCls}>
+                    <option value="">Selecione…</option>
+                    {BLOCO_OPCOES.map((o) => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className={labelCls}>PIC *</label>
+                  <select value={form.pic} onChange={(e) => set("pic", e.target.value)} className={inputCls}>
+                    <option value="">Selecione…</option>
+                    {PIC_OPCOES.map((o) => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div className="col-span-2">
+                  <label className={labelCls}>Sub Bloco *</label>
+                  <select value={form.subBloco} onChange={(e) => set("subBloco", e.target.value)} className={inputCls}>
+                    <option value="">Selecione…</option>
+                    {SUB_BLOCO_OPCOES.map((o) => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div className="col-span-2">
+                  <label className={labelCls}>KPI *</label>
+                  <input type="text" value={form.kpi} onChange={(e) => set("kpi", e.target.value)}
+                    placeholder='ex: "% Aderência de Processamento"' className={inputCls} />
+                </div>
+                <div className="col-span-2">
+                  <label className={labelCls}>Target *</label>
+                  <input type="text" value={form.target} onChange={(e) => set("target", e.target.value)}
+                    placeholder='ex: "95%", "100", "< 30 min"' className={inputCls} />
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wide mb-2">Métricas</div>
+              <div className="space-y-3">
+                <div>
+                  <label className={labelCls}>Memória de Cálculo (texto explicativo) *</label>
+                  <input type="text" value={form.formulaDescricao} onChange={(e) => set("formulaDescricao", e.target.value)}
+                    placeholder="ex: Pacotes dentro do target / Total de pacotes" className={inputCls} />
+                </div>
+                <div>
+                  <label className={labelCls}>Como consolidar na semana *</label>
+                  <select value={form.memoriaCalculo} onChange={(e) => set("memoriaCalculo", e.target.value)} className={inputCls}>
+                    {MEMORIA_CALCULO_OPCOES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                  <div className="text-[10.5px] text-neutral-400 mt-1">
+                    Diferente do texto acima: isto é o TIPO DE CONTA que o sistema usa de verdade pra fechar a semana (soma, média, etc.) — o texto é só pra explicar pra quem lê a tela.
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelCls}>Formatação Condicional — verde *</label>
+                    <select value={form.corVerde} onChange={(e) => set("corVerde", e.target.value)} className={inputCls}>
+                      <option value="">Selecione…</option>
+                      {COR_OPCOES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className={labelCls}>Formatação Condicional — vermelho *</label>
+                    <select value={form.corVermelho} onChange={(e) => set("corVermelho", e.target.value)} className={inputCls}>
+                      <option value="">Selecione…</option>
+                      {COR_OPCOES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wide mb-2">Posição</div>
+              <div className="text-[11px] text-neutral-400 mb-2">Opcional — sem preencher, o KPI vai pro fim da lista do Sub Bloco.</div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelCls}>Abaixo do KPI</label>
+                  <input type="text" list="add-kpi-existentes" value={form.abaixoDoKpi} onChange={(e) => set("abaixoDoKpi", e.target.value)}
+                    placeholder="nome de um KPI já existente" className={inputCls} />
+                </div>
+                <div>
+                  <label className={labelCls}>Acima do KPI</label>
+                  <input type="text" list="add-kpi-existentes" value={form.acimaDoKpi} onChange={(e) => set("acimaDoKpi", e.target.value)}
+                    placeholder="nome de um KPI já existente" className={inputCls} />
+                </div>
+              </div>
+              <datalist id="add-kpi-existentes">
+                {nomesKpisExistentes.map((n) => <option key={n} value={n} />)}
+              </datalist>
+            </div>
+          </div>
+
+          <div className="px-5 py-4 border-t border-neutral-100 flex items-center gap-3 shrink-0">
+            {result && (
+              <span className={"text-[12.5px] flex-1 " + (result.ok ? "text-ok-text" : "text-bad-text")}>{result.message}</span>
+            )}
+            <button onClick={onClose} className="ml-auto rounded-lg border border-neutral-300 text-neutral-600 text-sm font-medium px-4 py-2 hover:bg-neutral-50">
+              Cancelar
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="flex items-center gap-2 rounded-lg bg-brand hover:bg-brand-dark text-white text-sm font-medium px-4 py-2 transition-colors disabled:opacity-50"
+            >
+              <Icons.Save size={15} /> {saving ? "Salvando…" : "Salvar KPI"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  window.Components = window.Components || {};
+  window.Components.AddKpiModal = AddKpiModal;
 })();
 
 </script>
@@ -3731,6 +3982,7 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
     const [selectedIso, setSelectedIso] = useState(DataService.getDefaultDate());
     const [selectedKpiId, setSelectedKpiId] = useState(null);
     const [fillDataOpen, setFillDataOpen] = useState(false);
+    const [addKpiOpen, setAddKpiOpen] = useState(false);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(() => readLS("kpi.sidebarCollapsed", false));
     const [filters, setFilters] = useState({ search: "", bloco: "", pic: "" });
     const [density, setDensity] = useState(() => readLS("kpi.density", "comfortable"));
@@ -3757,7 +4009,7 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
 
     return (
       <div className="min-h-screen">
-        <Components.Header selectedIso={selectedIso} onDateChange={setSelectedIso} onOpenFillData={() => setFillDataOpen(true)} />
+        <Components.Header selectedIso={selectedIso} onDateChange={setSelectedIso} onOpenFillData={() => setFillDataOpen(true)} onOpenAddKpi={() => setAddKpiOpen(true)} />
         <Components.Sidebar
           active={active}
           onNavigate={setActive}
@@ -3815,6 +4067,10 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
 
         {fillDataOpen && (
           <Components.FillDataModal onClose={() => setFillDataOpen(false)} />
+        )}
+
+        {addKpiOpen && (
+          <Components.AddKpiModal onClose={() => setAddKpiOpen(false)} />
         )}
       </div>
     );

@@ -4747,20 +4747,6 @@
         </div>
       </div>
 
-      <!-- Painel TEMPORÁRIO de diagnóstico (pedido do Roberto em 2026-09-22):
-           ele só consegue abrir o JARVIS pelo app já cadastrado no Workspace
-           da SeaTalk, não uma URL solta — então o diagnóstico de ambiente
-           (User-Agent + bridge JS que a SeaTalk possa injetar) precisa
-           rodar na própria tela de login, que é a única página alcançável
-           de lá. REMOVER esse bloco (id="diag-seatalk-panel" + a função JS
-           diagSeatalkRun) assim que o diagnóstico não for mais necessário. -->
-      <div id="diag-seatalk-panel" style="background:#1a1d24;border:1px solid #2a2e37;border-radius:8px;padding:10px;margin-bottom:14px;font-size:11px;color:#c9cdd4">
-        <div style="color:#7aa2ff;text-transform:uppercase;letter-spacing:.5px;font-size:10px;margin-bottom:6px">Diagnóstico SeaTalk (temporário)</div>
-        <pre id="diag-seatalk-out" style="white-space:pre-wrap;word-break:break-all;font-family:'IBM Plex Mono',monospace;margin:0 0 8px;max-height:180px;overflow:auto"></pre>
-        <button type="button" onclick="diagSeatalkCopiar()" style="width:100%;background:#3b5bdb;color:#fff;border:none;border-radius:6px;padding:8px;font-size:12px">Copiar diagnóstico</button>
-        <div id="diag-seatalk-copied" style="display:none;color:#4ade80;font-size:11px;margin-top:4px">✓ Copiado!</div>
-      </div>
-
       <!-- 2 métodos de login (pedido do Roberto em 2026-09-14): e-mail +
            código por DM (1º fator domínio corporativo, 2º fator código de
            6 dígitos via SeaTalk — depende de permissão de Bot/Employee
@@ -4813,23 +4799,6 @@
         <button class="login-btn login-btn-outline" type="button" style="margin-top:8px" onclick="authBackToEmail()">
           <i class="fas fa-arrow-left"></i> Trocar e-mail / reenviar código
         </button>
-
-        <!-- Teste de deep link (pedido do Roberto em 2026-09-22, TEMPORÁRIO):
-             não existe doc pública do esquema de link da SeaTalk pra abrir
-             uma conversa direto — testando candidatos na prática. Depois de
-             confirmar qual funciona, REMOVER esse bloco (#deeplink-test-panel
-             + função deeplinkTestar) e deixar só o botão certo. -->
-        <div id="deeplink-test-panel" style="margin-top:14px;padding:10px;background:#1a1d24;border:1px solid #2a2e37;border-radius:8px">
-          <div style="color:#7aa2ff;text-transform:uppercase;letter-spacing:.5px;font-size:10px;margin-bottom:8px">Teste: abrir chat com o bot (temporário)</div>
-          <div style="font-size:11px;color:#8a8f98;margin-bottom:8px">Toca em cada um, um de cada vez. Se abrir a conversa certa com o bot, volta aqui e me fala qual número funcionou.</div>
-          <div style="display:flex;flex-direction:column;gap:6px">
-            <button type="button" class="login-btn login-btn-outline" style="font-size:12px;padding:8px" onclick="deeplinkTestar(1)">1 · seatalk://</button>
-            <button type="button" class="login-btn login-btn-outline" style="font-size:12px;padding:8px" onclick="deeplinkTestar(2)">2 · seatalk://chat?app_id=…</button>
-            <button type="button" class="login-btn login-btn-outline" style="font-size:12px;padding:8px" onclick="deeplinkTestar(3)">3 · seatalk://im/chat/bot?id=…</button>
-            <button type="button" class="login-btn login-btn-outline" style="font-size:12px;padding:8px" onclick="deeplinkTestar(4)">4 · https://seatalkweb.com/im/chat?app_id=…</button>
-          </div>
-          <div id="deeplink-test-out" style="font-size:11px;color:#c9cdd4;margin-top:8px;white-space:pre-wrap"></div>
-        </div>
       </div>
 
       <!-- Etapa 3: escolha do SoC (pedido do Roberto em 2026-09-21) — roda
@@ -8301,16 +8270,6 @@ async function authCheckSessao(){
     const j = await r.json();
     if(j.ok && j.user){ authEntrarOuEscolherSoc(j.user); return; }
   } catch(err){ /* sem sessão, mostra a tela de login abaixo */ }
-
-  // Testado em 2026-09-22 e REVERTIDO: tentar redirecionar (location.href)
-  // pro OAuth oficial da SeaTalk (open.seatalk.io) direto de dentro do
-  // Workspace não funciona — o próprio client da SeaTalk bloqueia esse tipo
-  // de navegação com um aviso ("only be opened outside of SeaTalk"), não dá
-  // pra contornar do lado do cliente. Confirmado ao vivo com o Roberto.
-  // Login silencioso de verdade dentro do Workspace exigiria a JSAPI oficial
-  // (H5 App) da SeaTalk, não documentada publicamente — ver conversa em
-  // 2026-09-22 sobre login. Enquanto isso não existe, segue o fluxo normal.
-
   // Só mostra a tela de login DEPOIS de confirmar que não tem sessão válida
   // (pedido do Roberto em 2026-09-15) — antes ela ficava visível por padrão
   // e "piscava" na tela pra quem já estava logado, toda vez que a página
@@ -8318,100 +8277,8 @@ async function authCheckSessao(){
   document.getElementById('login-screen').classList.remove('hidden');
   document.getElementById('app-splash')?.classList.add('hidden');
   initSeatalkLogin();
-  diagSeatalkRun();
 }
 
-// Diagnóstico TEMPORÁRIO (ver comentário no HTML do #diag-seatalk-panel) —
-// roda na própria tela de login pois é a única página alcançável de dentro
-// do app já cadastrado no Workspace da SeaTalk. Mesmo levantamento que
-// diag-seatalk.html faz: User-Agent + varredura de globals suspeitos +
-// checagem de nomes conhecidos + escuta de postMessage por 3s.
-function diagSeatalkRun(){
-  const linhas = [];
-  linhas.push('UA: ' + navigator.userAgent);
-  linhas.push('em iframe: ' + (window.self !== window.top));
-  linhas.push('referrer: ' + (document.referrer || '(vazio)'));
-
-  const padrao = /seatalk|jsbridge|webview|lark|^dd$|^tt$|^wx$|nativebridge|appbridge/i;
-  const achados = [];
-  try {
-    for (const k in window) {
-      if (padrao.test(k)) {
-        let tipo; try { tipo = typeof window[k]; } catch(e) { tipo = 'erro'; }
-        achados.push(k + ':' + tipo);
-      }
-    }
-  } catch(e) { achados.push('erro varredura: ' + e.message); }
-  linhas.push('globals suspeitos: ' + (achados.length ? achados.join(', ') : '(nenhum)'));
-
-  const candidatos = ['SeaTalkJSBridge','SeaTalk','seatalk','st','STJSBridge','WebViewJavascriptBridge','JSBridge','AndroidBridge'];
-  const known = candidatos.filter(n => { try { return typeof window[n] !== 'undefined'; } catch(e) { return false; } });
-  linhas.push('nomes conhecidos existentes: ' + (known.length ? known.join(', ') : '(nenhum)'));
-  try {
-    if (window.webkit && window.webkit.messageHandlers) {
-      linhas.push('webkit.messageHandlers: ' + Object.keys(window.webkit.messageHandlers).join(', '));
-    }
-  } catch(e){}
-
-  const out = document.getElementById('diag-seatalk-out');
-  if (out) out.textContent = linhas.join('\n') + '\n\npostMessage (aguardando 3s)…';
-
-  const msgs = [];
-  window.addEventListener('message', function(ev){
-    msgs.push(ev.origin + ' | ' + JSON.stringify(ev.data));
-    if (out) out.textContent = linhas.join('\n') + '\n\npostMessage:\n' + msgs.join('\n');
-  });
-  setTimeout(() => {
-    if (!msgs.length && out) out.textContent = linhas.join('\n') + '\n\npostMessage: nenhuma mensagem em 3s.';
-  }, 3000);
-
-  window.__diagSeatalkTexto = () => linhas.join('\n') + '\n\npostMessage:\n' + (msgs.length ? msgs.join('\n') : '(nenhuma)');
-}
-
-function diagSeatalkCopiar(){
-  const texto = window.__diagSeatalkTexto ? window.__diagSeatalkTexto() : (document.getElementById('diag-seatalk-out')?.textContent || '');
-  const marcarCopiado = () => { const el = document.getElementById('diag-seatalk-copied'); if (el) el.style.display = 'block'; };
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(texto).then(marcarCopiado).catch(() => diagSeatalkFallbackCopy(texto, marcarCopiado));
-  } else {
-    diagSeatalkFallbackCopy(texto, marcarCopiado);
-  }
-}
-function diagSeatalkFallbackCopy(texto, cb){
-  const ta = document.createElement('textarea');
-  ta.value = texto; ta.style.position = 'fixed'; ta.style.opacity = '0';
-  document.body.appendChild(ta); ta.focus(); ta.select();
-  try { document.execCommand('copy'); cb(); } catch(e) { alert('Copie manualmente:\n\n' + texto); }
-  document.body.removeChild(ta);
-}
-
-// Teste de deep link pra abrir o chat do bot (ver comentário no HTML do
-// #deeplink-test-panel) — sem doc pública do esquema da SeaTalk, testando
-// candidatos na prática com o Roberto. appId vem de /api/auth?config=1
-// (não é segredo, mesmo endpoint já usado em initSeatalkLogin).
-let deeplinkAppIdCache = null;
-async function deeplinkAppId(){
-  if (deeplinkAppIdCache) return deeplinkAppIdCache;
-  try {
-    const r = await fetch('/api/auth?config=1');
-    const j = await r.json();
-    deeplinkAppIdCache = j.appId || '';
-  } catch(e) { deeplinkAppIdCache = ''; }
-  return deeplinkAppIdCache;
-}
-async function deeplinkTestar(n){
-  const appId = await deeplinkAppId();
-  const links = {
-    1: 'seatalk://',
-    2: 'seatalk://chat?app_id=' + encodeURIComponent(appId),
-    3: 'seatalk://im/chat/bot?id=' + encodeURIComponent(appId),
-    4: 'https://seatalkweb.com/im/chat?app_id=' + encodeURIComponent(appId),
-  };
-  const link = links[n];
-  const out = document.getElementById('deeplink-test-out');
-  if (out) out.textContent = 'Tentando #' + n + ': ' + link;
-  location.href = link;
-}
 document.addEventListener('DOMContentLoaded', authCheckSessao);
 
 // Rodízio de fotos da tela de login (pedido do Roberto em 2026-09-14) —

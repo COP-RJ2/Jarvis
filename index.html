@@ -4813,6 +4813,23 @@
         <button class="login-btn login-btn-outline" type="button" style="margin-top:8px" onclick="authBackToEmail()">
           <i class="fas fa-arrow-left"></i> Trocar e-mail / reenviar código
         </button>
+
+        <!-- Teste de deep link (pedido do Roberto em 2026-09-22, TEMPORÁRIO):
+             não existe doc pública do esquema de link da SeaTalk pra abrir
+             uma conversa direto — testando candidatos na prática. Depois de
+             confirmar qual funciona, REMOVER esse bloco (#deeplink-test-panel
+             + função deeplinkTestar) e deixar só o botão certo. -->
+        <div id="deeplink-test-panel" style="margin-top:14px;padding:10px;background:#1a1d24;border:1px solid #2a2e37;border-radius:8px">
+          <div style="color:#7aa2ff;text-transform:uppercase;letter-spacing:.5px;font-size:10px;margin-bottom:8px">Teste: abrir chat com o bot (temporário)</div>
+          <div style="font-size:11px;color:#8a8f98;margin-bottom:8px">Toca em cada um, um de cada vez. Se abrir a conversa certa com o bot, volta aqui e me fala qual número funcionou.</div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <button type="button" class="login-btn login-btn-outline" style="font-size:12px;padding:8px" onclick="deeplinkTestar(1)">1 · seatalk://</button>
+            <button type="button" class="login-btn login-btn-outline" style="font-size:12px;padding:8px" onclick="deeplinkTestar(2)">2 · seatalk://chat?app_id=…</button>
+            <button type="button" class="login-btn login-btn-outline" style="font-size:12px;padding:8px" onclick="deeplinkTestar(3)">3 · seatalk://im/chat/bot?id=…</button>
+            <button type="button" class="login-btn login-btn-outline" style="font-size:12px;padding:8px" onclick="deeplinkTestar(4)">4 · https://seatalkweb.com/im/chat?app_id=…</button>
+          </div>
+          <div id="deeplink-test-out" style="font-size:11px;color:#c9cdd4;margin-top:8px;white-space:pre-wrap"></div>
+        </div>
       </div>
 
       <!-- Etapa 3: escolha do SoC (pedido do Roberto em 2026-09-21) — roda
@@ -8356,6 +8373,34 @@ function diagSeatalkFallbackCopy(texto, cb){
   document.body.appendChild(ta); ta.focus(); ta.select();
   try { document.execCommand('copy'); cb(); } catch(e) { alert('Copie manualmente:\n\n' + texto); }
   document.body.removeChild(ta);
+}
+
+// Teste de deep link pra abrir o chat do bot (ver comentário no HTML do
+// #deeplink-test-panel) — sem doc pública do esquema da SeaTalk, testando
+// candidatos na prática com o Roberto. appId vem de /api/auth?config=1
+// (não é segredo, mesmo endpoint já usado em initSeatalkLogin).
+let deeplinkAppIdCache = null;
+async function deeplinkAppId(){
+  if (deeplinkAppIdCache) return deeplinkAppIdCache;
+  try {
+    const r = await fetch('/api/auth?config=1');
+    const j = await r.json();
+    deeplinkAppIdCache = j.appId || '';
+  } catch(e) { deeplinkAppIdCache = ''; }
+  return deeplinkAppIdCache;
+}
+async function deeplinkTestar(n){
+  const appId = await deeplinkAppId();
+  const links = {
+    1: 'seatalk://',
+    2: 'seatalk://chat?app_id=' + encodeURIComponent(appId),
+    3: 'seatalk://im/chat/bot?id=' + encodeURIComponent(appId),
+    4: 'https://seatalkweb.com/im/chat?app_id=' + encodeURIComponent(appId),
+  };
+  const link = links[n];
+  const out = document.getElementById('deeplink-test-out');
+  if (out) out.textContent = 'Tentando #' + n + ': ' + link;
+  location.href = link;
 }
 document.addEventListener('DOMContentLoaded', authCheckSessao);
 

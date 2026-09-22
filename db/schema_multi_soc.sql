@@ -108,6 +108,16 @@ CREATE TABLE IF NOT EXISTS de_para_arvore_kpis (
   memoria_calculo   text,                    -- 'soma' | 'media' | 'maximo' | 'media_sem_domingo' | 'formula_diff_pct'
   agg_ref_numerador text,
   agg_ref_denominador text,
+  -- ordem/formula_descricao adicionadas em 2026-09-22 (pedido do Roberto,
+  -- cadastro de KPI pela interface + árvore por SoC). ordem = posição
+  -- relativa (float, permite inserir entre dois KPIs sem renumerar o
+  -- resto — mesma técnica de "fractional indexing"); formula_descricao =
+  -- texto livre explicando a conta (ex: "Pacotes dentro do target / Total
+  -- de pacotes"), separado de memoria_calculo porque esse último é o
+  -- enum controlado que a agregação semanal de verdade usa — não dá pra
+  -- misturar texto livre com o valor que uma função de código já compara.
+  ordem             numeric,
+  formula_descricao text,
   atualizado_em     timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (soc, kpi_id)
 );

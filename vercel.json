@@ -1,7 +1,0 @@
-{
-  "functions": {
-    "api/overview.js": {
-      "maxDuration": 60
-    }
-  }
-}

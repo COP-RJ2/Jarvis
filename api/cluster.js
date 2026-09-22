@@ -82,6 +82,8 @@
 const { fetchTabByGid } = require('./_google');
 const { toNum, parseCSV } = require('./_period');
 const { enrich, toCarroRow } = require('./_outbound');
+const { lerPorSoc } = require('./_pg');
+const { socDaSessaoOuErro } = require('./_users');
 
 const CLUSTER_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '646168208' };
 const CONFIG_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '1408724077' };
@@ -392,40 +394,122 @@ function aggregate(rows) {
   };
 }
 
-module.exports = async (req, res) => {
-  let rows, configRows, outboundRawRows;
-  try {
-    ({ rows } = await fetchTabByGid(CLUSTER_SHEET.spreadsheetId, CLUSTER_SHEET.gid));
-    ({ rows: configRows } = await fetchTabByGid(CONFIG_SHEET.spreadsheetId, CONFIG_SHEET.gid));
-    ({ rows: outboundRawRows } = await fetchTabByGid(OUTBOUND_SHEET.spreadsheetId, OUTBOUND_SHEET.gid));
-  } catch (err) {
-    res.status(502).json({ ok: false, erro: err.message });
-    return;
-  }
-  // De-para código→rua + capacidade real por rua, direto da aba `config`
-  // (colunas H-J: staging area id / staging area name / capacity). O roster
-  // de ruas segue a ORDEM DA PLANILHA — preserva onde a RESERVA 37A fica
-  // fisicamente sem precisar hardcodar. O mapa físico vai só até a RUA 142
-  // (confirmado com o Roberto em 2026-08-04) — a config já tem ruas além
-  // disso (até 169), mas ficam fora do roster/de-para: TOs endereçados nelas
-  // caem como PENDENTE, já que essas posições não fazem parte do mapa hoje.
-  const STAGING_DEPARA = new Map(); // staging area id -> { rua, capacidade }
+// O mapa físico vai só até a RUA 142 (confirmado com o Roberto em
+// 2026-08-04) — tanto a aba `config` (até a RUA 169) quanto o cadastro
+// de_para_ruas no Postgres podem ter ruas além disso; ficam fora do
+// roster/de-para: TOs endereçados nelas caem como PENDENTE, já que essas
+// posições não fazem parte do mapa hoje. Extraído numa função só porque
+// agora tem 2 fontes (Sheets/Postgres) que precisam da MESMA regra.
+function dentroDoMapaFisico(rua) {
+  const numRua = (rua.match(/^RUA (\d+)$/) || [])[1];
+  return numRua ? Number(numRua) <= 142 : /^RESERVA/i.test(rua);
+}
+// Ordem física da rua no piso, pra ordenar o roster quando ele vem do
+// Postgres (a tabela não guarda "ordem de planilha" — ver de_para_ruas em
+// db/schema_multi_soc.sql). "RUA 037" -> 37; "RESERVA 37A" -> 37.5 (fica
+// entre RUA 037 e RUA 038 — confirmado ao vivo: é onde a RESERVA 37A
+// fisicamente está na aba `config` de origem, dai o nome "37A").
+function ordemFisicaDaRua(rua) {
+  const numRua = (rua.match(/^RUA (\d+)$/) || [])[1];
+  if (numRua) return Number(numRua);
+  const numReserva = (rua.match(/^RESERVA (\d+)/i) || [])[1];
+  return numReserva ? Number(numReserva) + 0.5 : Infinity;
+}
+
+// Monta os 4 Maps (STAGING_DEPARA/RUA_ROSTER/CAPACIDADE_POR_RUA/
+// CLUSTER_ESPERADO) a partir das linhas cruas da aba `config` (Sheets,
+// colunas H-J: staging area id / staging area name / capacity / cluster).
+// Roster na ORDEM DA PLANILHA — preserva onde a RESERVA 37A fica
+// fisicamente sem precisar hardcodar.
+function buildDeParaDeSheets(configRows) {
+  const STAGING_DEPARA = new Map();
   const RUA_ROSTER = [];
-  const CAPACIDADE_POR_RUA = new Map(); // rua -> capacidade
-  const CLUSTER_ESPERADO = new Map(); // rua -> destino esperado (coluna "Cluster" da config)
+  const CAPACIDADE_POR_RUA = new Map();
+  const CLUSTER_ESPERADO = new Map();
   configRows.forEach(r => {
     const id = r['staging area id'];
     const rua = r['staging area name'];
-    if (!id || !rua) return;
-    const numRua = (rua.match(/^RUA (\d+)$/) || [])[1];
-    const dentroDoMapa = numRua ? Number(numRua) <= 142 : /^RESERVA/i.test(rua);
-    if (!dentroDoMapa) return;
+    if (!id || !rua || !dentroDoMapaFisico(rua)) return;
     const capacidade = toNum(r.capacity);
     STAGING_DEPARA.set(id, { rua, capacidade });
     RUA_ROSTER.push(rua);
     CAPACIDADE_POR_RUA.set(rua, capacidade);
     if (r.cluster) CLUSTER_ESPERADO.set(rua, r.cluster);
   });
+  return { STAGING_DEPARA, RUA_ROSTER, CAPACIDADE_POR_RUA, CLUSTER_ESPERADO };
+}
+
+// Mesma coisa, a partir das linhas de de_para_ruas no Postgres (migração
+// multi-SoC, pedido do Roberto em 2026-09-21/22 — ver api/_pg.js). Sem
+// "ordem de planilha" nativa aqui, então ordena por posição física
+// reconstruída (ordemFisicaDaRua).
+function buildDeParaDoBanco(pgRows) {
+  const STAGING_DEPARA = new Map();
+  const CAPACIDADE_POR_RUA = new Map();
+  const CLUSTER_ESPERADO = new Map();
+  const ruasValidas = [];
+  pgRows.forEach(r => {
+    const id = r.staging_area_id;
+    const rua = r.rua;
+    if (!id || !rua || !dentroDoMapaFisico(rua)) return;
+    const capacidade = toNum(r.capacidade);
+    STAGING_DEPARA.set(id, { rua, capacidade });
+    CAPACIDADE_POR_RUA.set(rua, capacidade);
+    if (r.cluster_esperado) CLUSTER_ESPERADO.set(rua, r.cluster_esperado);
+    ruasValidas.push(rua);
+  });
+  const RUA_ROSTER = ruasValidas.sort((a, b) => ordemFisicaDaRua(a) - ordemFisicaDaRua(b));
+  return { STAGING_DEPARA, RUA_ROSTER, CAPACIDADE_POR_RUA, CLUSTER_ESPERADO };
+}
+
+module.exports = async (req, res) => {
+  const soc = socDaSessaoOuErro(req, res);
+  if (!soc) return;
+
+  let rows, outboundRawRows;
+  try {
+    ({ rows } = await fetchTabByGid(CLUSTER_SHEET.spreadsheetId, CLUSTER_SHEET.gid));
+    ({ rows: outboundRawRows } = await fetchTabByGid(OUTBOUND_SHEET.spreadsheetId, OUTBOUND_SHEET.gid));
+  } catch (err) {
+    res.status(502).json({ ok: false, erro: err.message });
+    return;
+  }
+
+  // De-para código→rua + capacidade real por rua (ruas do roster/CD).
+  // Fonte: de_para_ruas no Postgres, filtrado pelo SoC da sessão — com
+  // FALLBACK pra Sheets (aba `config`, comportamento de hoje) só quando
+  // vazio/erro E o SoC é RJ2 (única origem implícita da planilha; cair
+  // pra Sheets pra RJ6/SC1/SC2 misturaria dado de RJ2 com o de outro SoC,
+  // exatamente o bug que a varredura multi-SoC apontou como perigoso —
+  // pedido do Roberto em 2026-09-21/22). Pra RJ6/SC1/SC2 sem cadastro
+  // ainda, o roster fica vazio (mesmo tratamento de "SoC sem dado" já
+  // usado na Árvore de KPIs e no Kanban), não um 502.
+  let deParaRuasPg = [];
+  try {
+    deParaRuasPg = await lerPorSoc('de_para_ruas', soc);
+  } catch (err) {
+    console.error('[api/cluster] lerPorSoc(de_para_ruas) falhou, ' +
+      (soc === 'RJ2' ? 'caindo pra Sheets (RJ2)' : 'seguindo com roster vazio') + ':', err.message);
+  }
+
+  let STAGING_DEPARA, RUA_ROSTER, CAPACIDADE_POR_RUA, CLUSTER_ESPERADO;
+  if (deParaRuasPg.length) {
+    ({ STAGING_DEPARA, RUA_ROSTER, CAPACIDADE_POR_RUA, CLUSTER_ESPERADO } = buildDeParaDoBanco(deParaRuasPg));
+  } else if (soc === 'RJ2') {
+    let configRows;
+    try {
+      ({ rows: configRows } = await fetchTabByGid(CONFIG_SHEET.spreadsheetId, CONFIG_SHEET.gid));
+    } catch (err) {
+      res.status(502).json({ ok: false, erro: err.message });
+      return;
+    }
+    ({ STAGING_DEPARA, RUA_ROSTER, CAPACIDADE_POR_RUA, CLUSTER_ESPERADO } = buildDeParaDeSheets(configRows));
+  } else {
+    STAGING_DEPARA = new Map();
+    RUA_ROSTER = [];
+    CAPACIDADE_POR_RUA = new Map();
+    CLUSTER_ESPERADO = new Map();
+  }
   const CAPACIDADE_TOTAL_CD = RUA_ROSTER.reduce((s, rua) => s + (CAPACIDADE_POR_RUA.get(rua) || 0), 0);
 
   // Reconstrói destino/rua/stage/aging a partir das colunas reais de hoje

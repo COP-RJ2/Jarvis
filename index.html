@@ -4747,6 +4747,20 @@
         </div>
       </div>
 
+      <!-- Painel TEMPORÁRIO de diagnóstico (pedido do Roberto em 2026-09-22):
+           ele só consegue abrir o JARVIS pelo app já cadastrado no Workspace
+           da SeaTalk, não uma URL solta — então o diagnóstico de ambiente
+           (User-Agent + bridge JS que a SeaTalk possa injetar) precisa
+           rodar na própria tela de login, que é a única página alcançável
+           de lá. REMOVER esse bloco (id="diag-seatalk-panel" + a função JS
+           diagSeatalkRun) assim que o diagnóstico não for mais necessário. -->
+      <div id="diag-seatalk-panel" style="background:#1a1d24;border:1px solid #2a2e37;border-radius:8px;padding:10px;margin-bottom:14px;font-size:11px;color:#c9cdd4">
+        <div style="color:#7aa2ff;text-transform:uppercase;letter-spacing:.5px;font-size:10px;margin-bottom:6px">Diagnóstico SeaTalk (temporário)</div>
+        <pre id="diag-seatalk-out" style="white-space:pre-wrap;word-break:break-all;font-family:'IBM Plex Mono',monospace;margin:0 0 8px;max-height:180px;overflow:auto"></pre>
+        <button type="button" onclick="diagSeatalkCopiar()" style="width:100%;background:#3b5bdb;color:#fff;border:none;border-radius:6px;padding:8px;font-size:12px">Copiar diagnóstico</button>
+        <div id="diag-seatalk-copied" style="display:none;color:#4ade80;font-size:11px;margin-top:4px">✓ Copiado!</div>
+      </div>
+
       <!-- 2 métodos de login (pedido do Roberto em 2026-09-14): e-mail +
            código por DM (1º fator domínio corporativo, 2º fator código de
            6 dígitos via SeaTalk — depende de permissão de Bot/Employee
@@ -8277,6 +8291,71 @@ async function authCheckSessao(){
   document.getElementById('login-screen').classList.remove('hidden');
   document.getElementById('app-splash')?.classList.add('hidden');
   initSeatalkLogin();
+  diagSeatalkRun();
+}
+
+// Diagnóstico TEMPORÁRIO (ver comentário no HTML do #diag-seatalk-panel) —
+// roda na própria tela de login pois é a única página alcançável de dentro
+// do app já cadastrado no Workspace da SeaTalk. Mesmo levantamento que
+// diag-seatalk.html faz: User-Agent + varredura de globals suspeitos +
+// checagem de nomes conhecidos + escuta de postMessage por 3s.
+function diagSeatalkRun(){
+  const linhas = [];
+  linhas.push('UA: ' + navigator.userAgent);
+  linhas.push('em iframe: ' + (window.self !== window.top));
+  linhas.push('referrer: ' + (document.referrer || '(vazio)'));
+
+  const padrao = /seatalk|jsbridge|webview|lark|^dd$|^tt$|^wx$|nativebridge|appbridge/i;
+  const achados = [];
+  try {
+    for (const k in window) {
+      if (padrao.test(k)) {
+        let tipo; try { tipo = typeof window[k]; } catch(e) { tipo = 'erro'; }
+        achados.push(k + ':' + tipo);
+      }
+    }
+  } catch(e) { achados.push('erro varredura: ' + e.message); }
+  linhas.push('globals suspeitos: ' + (achados.length ? achados.join(', ') : '(nenhum)'));
+
+  const candidatos = ['SeaTalkJSBridge','SeaTalk','seatalk','st','STJSBridge','WebViewJavascriptBridge','JSBridge','AndroidBridge'];
+  const known = candidatos.filter(n => { try { return typeof window[n] !== 'undefined'; } catch(e) { return false; } });
+  linhas.push('nomes conhecidos existentes: ' + (known.length ? known.join(', ') : '(nenhum)'));
+  try {
+    if (window.webkit && window.webkit.messageHandlers) {
+      linhas.push('webkit.messageHandlers: ' + Object.keys(window.webkit.messageHandlers).join(', '));
+    }
+  } catch(e){}
+
+  const out = document.getElementById('diag-seatalk-out');
+  if (out) out.textContent = linhas.join('\n') + '\n\npostMessage (aguardando 3s)…';
+
+  const msgs = [];
+  window.addEventListener('message', function(ev){
+    msgs.push(ev.origin + ' | ' + JSON.stringify(ev.data));
+    if (out) out.textContent = linhas.join('\n') + '\n\npostMessage:\n' + msgs.join('\n');
+  });
+  setTimeout(() => {
+    if (!msgs.length && out) out.textContent = linhas.join('\n') + '\n\npostMessage: nenhuma mensagem em 3s.';
+  }, 3000);
+
+  window.__diagSeatalkTexto = () => linhas.join('\n') + '\n\npostMessage:\n' + (msgs.length ? msgs.join('\n') : '(nenhuma)');
+}
+
+function diagSeatalkCopiar(){
+  const texto = window.__diagSeatalkTexto ? window.__diagSeatalkTexto() : (document.getElementById('diag-seatalk-out')?.textContent || '');
+  const marcarCopiado = () => { const el = document.getElementById('diag-seatalk-copied'); if (el) el.style.display = 'block'; };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(texto).then(marcarCopiado).catch(() => diagSeatalkFallbackCopy(texto, marcarCopiado));
+  } else {
+    diagSeatalkFallbackCopy(texto, marcarCopiado);
+  }
+}
+function diagSeatalkFallbackCopy(texto, cb){
+  const ta = document.createElement('textarea');
+  ta.value = texto; ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.focus(); ta.select();
+  try { document.execCommand('copy'); cb(); } catch(e) { alert('Copie manualmente:\n\n' + texto); }
+  document.body.removeChild(ta);
 }
 document.addEventListener('DOMContentLoaded', authCheckSessao);
 

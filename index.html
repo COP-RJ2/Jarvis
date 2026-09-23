@@ -7462,36 +7462,71 @@
       <button class="modal-close" onclick="ruasCloseModal()"><i class="fas fa-xmark"></i></button>
     </div>
     <div style="padding:0 20px 4px;font-size:12px;color:var(--text-muted)">De-para de ruas do seu SoC: Staging Area ID (código físico), Rua, Capacidade (posições) e Cluster Esperado (destino ideal pra clusterização).</div>
-    <form id="ruas-form" onsubmit="ruasSubmit(event)" style="padding:12px 20px 0">
-      <input type="hidden" id="ruas-editing-id"/>
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">Staging Area ID *</label>
-          <input type="text" class="form-input" id="ruas-f-staging-id" required placeholder="Ex.: OBS-03CW"/>
+
+    <div style="display:flex;gap:8px;padding:10px 20px 0">
+      <button type="button" class="btn btn-outline" id="ruas-tab-btn-individual" onclick="ruasTrocarAba('individual')" style="flex:1">Individual</button>
+      <button type="button" class="btn btn-outline" id="ruas-tab-btn-batch" onclick="ruasTrocarAba('batch')" style="flex:1"><i class="fas fa-file-csv"></i> Importar em massa</button>
+    </div>
+
+    <div id="ruas-tab-individual">
+      <form id="ruas-form" onsubmit="ruasSubmit(event)" style="padding:12px 20px 0">
+        <input type="hidden" id="ruas-editing-id"/>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Staging Area ID *</label>
+            <input type="text" class="form-input" id="ruas-f-staging-id" required placeholder="Ex.: OBS-03CW"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Rua *</label>
+            <input type="text" class="form-input" id="ruas-f-rua" required placeholder="Ex.: RUA 037"/>
+          </div>
+          <div class="form-group" style="max-width:140px">
+            <label class="form-label">Capacidade *</label>
+            <input type="number" class="form-input" id="ruas-f-capacidade" required min="0" step="1" placeholder="20"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Cluster Esperado</label>
+            <input type="text" class="form-input" id="ruas-f-cluster" placeholder="Destino ideal (opcional)"/>
+          </div>
         </div>
-        <div class="form-group">
-          <label class="form-label">Rua *</label>
-          <input type="text" class="form-input" id="ruas-f-rua" required placeholder="Ex.: RUA 037"/>
+        <div class="modal-footer" style="padding:4px 0 16px">
+          <button type="button" class="btn btn-outline" id="ruas-cancel-edit-btn" onclick="ruasCancelEdit()" style="display:none">Cancelar edição</button>
+          <button type="submit" class="btn btn-primary" id="ruas-submit-btn"><i class="fas fa-plus"></i> Adicionar Rua</button>
         </div>
-        <div class="form-group" style="max-width:140px">
-          <label class="form-label">Capacidade *</label>
-          <input type="number" class="form-input" id="ruas-f-capacidade" required min="0" step="1" placeholder="20"/>
+      </form>
+      <div style="padding:0 20px 20px;max-height:50vh;overflow:auto">
+        <table class="clst-table" style="width:100%">
+          <thead><tr><th>Staging Area ID</th><th>Rua</th><th>Capacidade</th><th>Cluster Esperado</th><th></th></tr></thead>
+          <tbody id="ruas-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="ruas-tab-batch" style="display:none;padding:12px 20px 20px">
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">
+        Baixe o modelo, preencha uma linha por rua e suba o arquivo de volta. Linhas com Staging Area ID já cadastrado atualizam a rua existente; as demais são criadas. Só importa se o arquivo inteiro estiver dentro do modelo — se alguma linha tiver erro, nada é importado.
+      </div>
+      <button type="button" class="btn btn-outline" onclick="ruasBatchBaixarModelo()" style="margin-bottom:14px"><i class="fas fa-download"></i> Baixar modelo CSV</button>
+
+      <div class="form-group">
+        <label class="form-label">Arquivo CSV</label>
+        <input type="file" class="form-input" id="ruas-batch-file" accept=".csv" onchange="ruasBatchArquivoSelecionado(this)"/>
+      </div>
+
+      <div id="ruas-batch-preview" style="display:none;margin-top:12px">
+        <div id="ruas-batch-preview-resumo" style="font-size:12px;margin-bottom:8px"></div>
+        <div style="max-height:30vh;overflow:auto">
+          <table class="clst-table" style="width:100%">
+            <thead><tr><th>#</th><th>Staging Area ID</th><th>Rua</th><th>Capacidade</th><th>Cluster Esperado</th></tr></thead>
+            <tbody id="ruas-batch-preview-body"></tbody>
+          </table>
         </div>
-        <div class="form-group">
-          <label class="form-label">Cluster Esperado</label>
-          <input type="text" class="form-input" id="ruas-f-cluster" placeholder="Destino ideal (opcional)"/>
+        <div id="ruas-batch-erros" style="margin-top:10px;font-size:12px;color:var(--red)"></div>
+        <div class="modal-footer" style="padding:14px 0 0">
+          <button type="button" class="btn btn-outline" onclick="ruasBatchCancelar()">Cancelar</button>
+          <button type="button" class="btn btn-primary" id="ruas-batch-confirmar-btn" onclick="ruasBatchConfirmar()"><i class="fas fa-upload"></i> Confirmar importação</button>
         </div>
       </div>
-      <div class="modal-footer" style="padding:4px 0 16px">
-        <button type="button" class="btn btn-outline" id="ruas-cancel-edit-btn" onclick="ruasCancelEdit()" style="display:none">Cancelar edição</button>
-        <button type="submit" class="btn btn-primary" id="ruas-submit-btn"><i class="fas fa-plus"></i> Adicionar Rua</button>
-      </div>
-    </form>
-    <div style="padding:0 20px 20px;max-height:50vh;overflow:auto">
-      <table class="clst-table" style="width:100%">
-        <thead><tr><th>Staging Area ID</th><th>Rua</th><th>Capacidade</th><th>Cluster Esperado</th><th></th></tr></thead>
-        <tbody id="ruas-table-body"></tbody>
-      </table>
     </div>
   </div>
 </div>
@@ -16267,9 +16302,19 @@ function ruasRenderTable(){
     </tr>`).join('');
 }
 
+function ruasTrocarAba(aba){
+  const individual = aba === 'individual';
+  document.getElementById('ruas-tab-individual').style.display = individual ? '' : 'none';
+  document.getElementById('ruas-tab-batch').style.display = individual ? 'none' : '';
+  document.getElementById('ruas-tab-btn-individual').className = 'btn ' + (individual ? 'btn-primary' : 'btn-outline');
+  document.getElementById('ruas-tab-btn-batch').className = 'btn ' + (individual ? 'btn-outline' : 'btn-primary');
+  if (individual) ruasBatchCancelar(); // limpa qualquer preview pendente ao sair da aba
+}
+
 async function ruasOpenModal(){
   document.getElementById('ruas-modal-overlay').classList.add('open');
   ruasCancelEdit();
+  ruasTrocarAba('individual');
   const tbody = document.getElementById('ruas-table-body');
   if(tbody) tbody.innerHTML = '<tr><td colspan="5" class="switch-hint">Carregando…</td></tr>';
   try {
@@ -16355,6 +16400,153 @@ async function ruasDelete(stagingAreaId){
     showToast('✓ Rua excluída.');
   } catch(err){
     showToast('Erro: '+err.message, true);
+  }
+}
+
+// ── Importar em massa (pedido do Roberto em 2026-09-23) ────────────────────
+// Modelo baixável (mesmo header que o backend espera em action:'batch'),
+// parse+validação no cliente (feedback imediato) — mas o servidor SEMPRE
+// revalida tudo de novo (handleRuasBatch em api/cluster.js), nunca confia
+// só no que o cliente mandou. Só libera "Confirmar" se o arquivo inteiro
+// estiver dentro do modelo — nenhuma importação parcial.
+const RUAS_BATCH_HEADER = ['staging_area_id', 'rua', 'capacidade', 'cluster_esperado'];
+let ruasBatchLinhas = null;
+
+function ruasBatchBaixarModelo(){
+  pulsoDownloadCsv('modelo_ruas.csv', RUAS_BATCH_HEADER, [
+    ['OBS-03CW', 'RUA 037', '20', 'DESTINO-EXEMPLO'],
+  ]);
+}
+
+// Parser simples de CSV (;  — mesmo delimitador que pulsoDownloadCsv usa,
+// compatível com Excel PT-BR) — sem lib nova, arquivo é sempre pequeno
+// (RUAS_BATCH_MAX = 500 linhas no backend).
+function ruasBatchParseCsv(texto){
+  const linhas = texto.replace(/^﻿/, '').split(/\r?\n/).filter(l => l.trim() !== '');
+  if (!linhas.length) return { header: [], linhas: [] };
+  const header = linhas[0].split(';').map(h => h.replace(/"/g, '').trim().toLowerCase());
+  const dados = linhas.slice(1).map(l => {
+    const vals = l.split(';').map(v => v.replace(/^"|"$/g, '').trim());
+    const obj = {};
+    header.forEach((h, i) => { obj[h] = vals[i] !== undefined ? vals[i] : ''; });
+    return obj;
+  });
+  return { header, linhas: dados };
+}
+
+function ruasBatchValidarLinha(linha){
+  const staging_area_id = String(linha.staging_area_id || '').trim();
+  const rua = String(linha.rua || '').trim();
+  const capacidadeRaw = linha.capacidade;
+  const capacidade = Number(String(capacidadeRaw).replace(',', '.'));
+  const faltando = [];
+  if (!staging_area_id) faltando.push('Staging Area ID');
+  if (!rua) faltando.push('Rua');
+  if (capacidadeRaw === undefined || capacidadeRaw === '' || isNaN(capacidade) || capacidade < 0) faltando.push('Capacidade (número >= 0)');
+  if (faltando.length) return { ok: false, erro: `Campo(s) inválido(s): ${faltando.join(', ')}` };
+  return { ok: true, valores: { staging_area_id, rua, capacidade, cluster_esperado: String(linha.cluster_esperado || '').trim() } };
+}
+
+function ruasBatchArquivoSelecionado(input){
+  const file = input.files && input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => ruasBatchProcessarTexto(String(reader.result || ''));
+  reader.onerror = () => showToast('Erro ao ler o arquivo.', true);
+  reader.readAsText(file, 'utf-8');
+}
+
+function ruasBatchProcessarTexto(texto){
+  const { header, linhas } = ruasBatchParseCsv(texto);
+  const preview = document.getElementById('ruas-batch-preview');
+  const resumo = document.getElementById('ruas-batch-preview-resumo');
+  const errosEl = document.getElementById('ruas-batch-erros');
+  const tbody = document.getElementById('ruas-batch-preview-body');
+  const confirmarBtn = document.getElementById('ruas-batch-confirmar-btn');
+  preview.style.display = '';
+
+  const headerEsperado = RUAS_BATCH_HEADER.join(';');
+  if (header.join(';') !== headerEsperado) {
+    resumo.textContent = '';
+    tbody.innerHTML = '';
+    errosEl.textContent = `Cabeçalho do arquivo não bate com o modelo esperado. Esperado: "${headerEsperado}" — encontrado: "${header.join(';')}". Baixe o modelo de novo e não altere a primeira linha.`;
+    confirmarBtn.disabled = true;
+    ruasBatchLinhas = null;
+    return;
+  }
+  if (!linhas.length) {
+    resumo.textContent = '';
+    tbody.innerHTML = '';
+    errosEl.textContent = 'Arquivo sem nenhuma linha de dado (só o cabeçalho).';
+    confirmarBtn.disabled = true;
+    ruasBatchLinhas = null;
+    return;
+  }
+
+  const erros = [];
+  const vistos = new Map();
+  const validas = [];
+  linhas.forEach((linha, i) => {
+    const n = i + 1;
+    const v = ruasBatchValidarLinha(linha);
+    if (!v.ok) { erros.push(`Linha ${n}: ${v.erro}`); return; }
+    const chave = v.valores.staging_area_id.toLowerCase();
+    if (vistos.has(chave)) { erros.push(`Linha ${n}: Staging Area ID "${v.valores.staging_area_id}" duplicado (já aparece na linha ${vistos.get(chave)}).`); return; }
+    vistos.set(chave, n);
+    validas.push(v.valores);
+  });
+
+  tbody.innerHTML = linhas.map((linha, i) => {
+    const v = ruasBatchValidarLinha(linha);
+    const cor = v.ok ? '' : 'color:var(--red)';
+    return `<tr style="${cor}"><td>${i+1}</td><td>${pulsoEscHtml(linha.staging_area_id||'')}</td><td>${pulsoEscHtml(linha.rua||'')}</td><td>${pulsoEscHtml(linha.capacidade||'')}</td><td>${pulsoEscHtml(linha.cluster_esperado||'')}</td></tr>`;
+  }).join('');
+
+  if (erros.length) {
+    resumo.textContent = `${linhas.length} linha(s) no arquivo, ${erros.length} com erro.`;
+    errosEl.innerHTML = 'Corrija e suba de novo — nenhuma linha foi importada:<br>' + erros.map(pulsoEscHtml).join('<br>');
+    confirmarBtn.disabled = true;
+    ruasBatchLinhas = null;
+  } else {
+    resumo.textContent = `${validas.length} linha(s) prontas pra importar.`;
+    errosEl.textContent = '';
+    confirmarBtn.disabled = false;
+    ruasBatchLinhas = validas;
+  }
+}
+
+function ruasBatchCancelar(){
+  ruasBatchLinhas = null;
+  const fileInput = document.getElementById('ruas-batch-file');
+  if (fileInput) fileInput.value = '';
+  const preview = document.getElementById('ruas-batch-preview');
+  if (preview) preview.style.display = 'none';
+}
+
+async function ruasBatchConfirmar(){
+  if (!ruasBatchLinhas || !ruasBatchLinhas.length) return;
+  const btn = document.getElementById('ruas-batch-confirmar-btn');
+  if (btn) btn.disabled = true;
+  try {
+    const r = await fetch('/api/cluster?ruas=1', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ action: 'batch', ruas: ruasBatchLinhas }),
+    });
+    const j = await r.json();
+    if (!j.ok) {
+      const detalhe = Array.isArray(j.erros) && j.erros.length ? '<br>' + j.erros.map(pulsoEscHtml).join('<br>') : '';
+      document.getElementById('ruas-batch-erros').innerHTML = pulsoEscHtml(j.erro || 'falha ao importar') + detalhe;
+      return;
+    }
+    ruasCache = j.ruas;
+    ruasBatchCancelar();
+    ruasTrocarAba('individual');
+    ruasRenderTable();
+    showToast(`✓ ${j.importadas} rua(s) importada(s)!`);
+  } catch(err){
+    showToast('Erro: '+err.message, true);
+  } finally {
+    if (btn) btn.disabled = false;
   }
 }
 

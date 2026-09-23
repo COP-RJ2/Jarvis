@@ -472,6 +472,84 @@ function buildDeParaDoBanco(pgRows) {
 // `soc` NUNCA vem do payload do cliente, sempre de socDaSessaoOuErro (mesma
 // regra de segurança de todo o multi-SoC). Mesmo espírito de validação do
 // adicionarArvoreKpi (api/_arvore.js), adaptado pra CRUD completo.
+// Valida uma linha de rua (mesma regra pro form individual e pra cada linha
+// do CSV em lote — extraído pra não duplicar). Devolve { ok, valores, erro }.
+function validarLinhaRua(ruaPayload) {
+  const staging_area_id = String((ruaPayload || {}).staging_area_id || '').trim();
+  const rua = String((ruaPayload || {}).rua || '').trim();
+  const capacidadeRaw = (ruaPayload || {}).capacidade;
+  const capacidade = toNum(capacidadeRaw);
+  const clusterEsperado = String((ruaPayload || {}).cluster_esperado || '').trim() || null;
+
+  const faltando = [];
+  if (!staging_area_id) faltando.push('Staging Area ID');
+  if (!rua) faltando.push('Rua');
+  if (capacidadeRaw === undefined || capacidadeRaw === null || capacidadeRaw === '' || isNaN(capacidade) || capacidade < 0) {
+    faltando.push('Capacidade (número >= 0)');
+  }
+  if (faltando.length) {
+    return { ok: false, erro: `Campo(s) obrigatório(s) inválido(s): ${faltando.join(', ')}.` };
+  }
+  return { ok: true, valores: { staging_area_id, rua, capacidade, clusterEsperado } };
+}
+
+const RUAS_BATCH_MAX = 500; // sanity bound — o mapa físico inteiro tem ~150 ruas
+
+async function handleRuasBatch(req, res, soc, listar) {
+  const linhas = (req.body || {}).ruas;
+  if (!Array.isArray(linhas) || !linhas.length) {
+    res.status(400).json({ ok: false, erro: 'Nenhuma linha pra importar.' });
+    return;
+  }
+  if (linhas.length > RUAS_BATCH_MAX) {
+    res.status(400).json({ ok: false, erro: `Máximo de ${RUAS_BATCH_MAX} linhas por importação (mandou ${linhas.length}).` });
+    return;
+  }
+
+  // Valida TODAS as linhas antes de tocar no banco — "só aceita se estiver
+  // dentro do modelo esperado" (pedido do Roberto), nunca importação parcial.
+  const erros = [];
+  const vistos = new Map(); // staging_area_id (lowercase) -> linha nº, pra achar duplicata dentro do próprio arquivo
+  const validas = [];
+  linhas.forEach((linha, i) => {
+    const n = i + 1;
+    const v = validarLinhaRua(linha);
+    if (!v.ok) { erros.push(`Linha ${n}: ${v.erro}`); return; }
+    const chave = v.valores.staging_area_id.toLowerCase();
+    if (vistos.has(chave)) { erros.push(`Linha ${n}: Staging Area ID "${v.valores.staging_area_id}" duplicado (já aparece na linha ${vistos.get(chave)}).`); return; }
+    vistos.set(chave, n);
+    validas.push(v.valores);
+  });
+  if (erros.length) {
+    res.status(400).json({ ok: false, erro: 'Arquivo fora do modelo esperado.', erros });
+    return;
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    for (const v of validas) {
+      await client.query(
+        `INSERT INTO de_para_ruas (soc, staging_area_id, rua, capacidade, cluster_esperado, atualizado_em)
+         VALUES ($1,$2,$3,$4,$5, now())
+         ON CONFLICT (soc, staging_area_id) DO UPDATE
+           SET rua = EXCLUDED.rua, capacidade = EXCLUDED.capacidade,
+               cluster_esperado = EXCLUDED.cluster_esperado, atualizado_em = now()`,
+        [soc, v.staging_area_id, v.rua, v.capacidade, v.clusterEsperado]
+      );
+    }
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(502).json({ ok: false, erro: err.message });
+    return;
+  } finally {
+    client.release();
+  }
+
+  res.status(200).json({ ok: true, importadas: validas.length, ruas: await listar() });
+}
+
 async function handleRuas(req, res) {
   const soc = socDaSessaoOuErro(req, res);
   if (!soc) return;
@@ -497,6 +575,12 @@ async function handleRuas(req, res) {
   }
 
   const action = (req.body || {}).action;
+
+  if (action === 'batch') {
+    await handleRuasBatch(req, res, soc, listar);
+    return;
+  }
+
   const ruaPayload = (req.body || {}).rua || {};
   const staging_area_id = String(ruaPayload.staging_area_id || '').trim();
 
@@ -515,24 +599,16 @@ async function handleRuas(req, res) {
   }
 
   if (action !== 'create' && action !== 'update') {
-    res.status(400).json({ ok: false, erro: 'action inválida (use create, update ou delete).' });
+    res.status(400).json({ ok: false, erro: 'action inválida (use create, update, delete ou batch).' });
     return;
   }
 
-  const rua = String(ruaPayload.rua || '').trim();
-  const capacidade = toNum(ruaPayload.capacidade);
-  const clusterEsperado = String(ruaPayload.cluster_esperado || '').trim() || null;
-
-  const faltando = [];
-  if (!staging_area_id) faltando.push('Staging Area ID');
-  if (!rua) faltando.push('Rua');
-  if (ruaPayload.capacidade === undefined || ruaPayload.capacidade === null || ruaPayload.capacidade === '' || isNaN(capacidade) || capacidade < 0) {
-    faltando.push('Capacidade (número >= 0)');
-  }
-  if (faltando.length) {
-    res.status(400).json({ ok: false, erro: `Campo(s) obrigatório(s) inválido(s): ${faltando.join(', ')}.` });
+  const validacao = validarLinhaRua(ruaPayload);
+  if (!validacao.ok) {
+    res.status(400).json({ ok: false, erro: validacao.erro });
     return;
   }
+  const { rua, capacidade, clusterEsperado } = validacao.valores;
 
   try {
     if (action === 'create') {

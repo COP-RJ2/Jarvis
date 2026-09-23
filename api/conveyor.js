@@ -25,16 +25,23 @@
  * pré-bucketizada pro dia operacional, então combinamos data+hora aqui
  * (mesmo padrão de api/backlog.js e api/labor.js).
  *
- * Classificação esteira -> grupo de exibição:
- *   POBA/POBB -> OBA/OBB · POBC/POBD -> OBC/OBD · P4 -> Termoplástica
- *   P1 -> Esteira A · P2 -> Esteira B · PTIN -> Tintas
- *   P_TO-Audit -> TO-Audit · resto (ex: P_NON-TO) -> Non-TO
+ * Classificação esteira -> grupo de exibição: antes hardcoded aqui
+ * (POBA/POBB -> OBA/OBB · POBC/POBD -> OBC/OBD · P4 -> Termoplástica ·
+ * P1 -> Esteira A · P2 -> Esteira B · PTIN -> Tintas · P_TO-Audit -> TO-Audit
+ * · resto -> Non-TO). Migrado pro Postgres (de_para_esteiras, mesmo padrão
+ * multi-SoC de de_para_ruas em api/cluster.js — pedido do Roberto em
+ * 2026-09-23: RJ6/SC1/SC2 têm workstations/esteiras diferentes de RJ2, não
+ * dá pra manter fixo no código). Ver classificarEsteira/buildMapaEsteiras
+ * mais abaixo e "Configurar Esteiras" (?esteiras=1).
  *
  * Query params:
  *   date   YYYY-MM-DD (dia operacional a visualizar; default = hoje operacional)
  */
 const { fetchTabByGid } = require('./_google');
 const { toNum, dataOperacionalDe, hojeOperacionalIso } = require('./_period');
+const { lerPorSoc } = require('./_pg');
+const { socDaSessaoOuErro } = require('./_users');
+const { pool } = require('../db');
 
 const SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '1013894222' };
 // Capacidade por hora (pedido do Roberto em 2026-08-21): soma de TARGET
@@ -75,19 +82,210 @@ async function sppScuttleAoVivo() {
   return +(soma / scuttles.length).toFixed(1);
 }
 
-function classificarEsteira(esteira) {
-  const e = String(esteira || '').toUpperCase();
-  if (e === 'POBA' || e === 'POBB') return 'OBA/OBB';
-  if (e === 'POBC' || e === 'POBD') return 'OBC/OBD';
-  if (e === 'P4') return 'Termoplástica';
-  if (e === 'P1') return 'Esteira A';
-  if (e === 'P2') return 'Esteira B';
-  if (e === 'PTIN') return 'Tintas';
-  if (e === 'P_TO-AUDIT') return 'TO-Audit';
-  return 'Non-TO';
+// Mapa fixo original (fallback só pra RJ2 se de_para_esteiras vier vazio/com
+// erro — mesmo papel do fallback pra Sheets em buildDeParaDoBanco/cluster.js,
+// só que aqui não existe aba própria de esteiras: a "fonte alternativa" é o
+// mapa que já existia hardcoded antes da migração multi-SoC).
+const CLASSIFICACAO_ESTEIRA_RJ2_FALLBACK = new Map([
+  ['POBA', 'OBA/OBB'], ['POBB', 'OBA/OBB'],
+  ['POBC', 'OBC/OBD'], ['POBD', 'OBC/OBD'],
+  ['P4', 'Termoplástica'],
+  ['P1', 'Esteira A'],
+  ['P2', 'Esteira B'],
+  ['PTIN', 'Tintas'],
+  ['P_TO-AUDIT', 'TO-Audit'],
+]);
+
+// Código não encontrado no Map cai em 'Non-TO' — mesmo catch-all de sempre,
+// não é erro (SoC sem cadastro ainda, ou esteira nova tipo "P_NON-TO").
+function buildMapaEsteiras(pgRows) {
+  const mapa = new Map();
+  pgRows.forEach(r => {
+    const codigo = String(r.esteira_codigo || '').trim().toUpperCase();
+    if (codigo) mapa.set(codigo, r.grupo_exibicao);
+  });
+  return mapa;
+}
+function classificarEsteira(esteira, mapa) {
+  return mapa.get(String(esteira || '').toUpperCase()) || 'Non-TO';
+}
+
+// ── "Configurar Esteiras" (?esteiras=1) — mesmo padrão de "Configurar Ruas"
+// em api/cluster.js (handleRuas/handleRuasBatch/validarLinhaRua), só que com
+// 2 campos (esteira_codigo/grupo_exibicao) em vez de 4. PK (soc,
+// esteira_codigo). Código normalizado pra maiúsculas ao salvar — mesma
+// convenção usada na leitura (classificarEsteira/buildMapaEsteiras), pra um
+// cadastro "poba" e "POBA" não virarem 2 linhas que colidem na classificação.
+function validarLinhaEsteira(payload) {
+  const esteira_codigo = String((payload || {}).esteira_codigo || '').trim().toUpperCase();
+  const grupo_exibicao = String((payload || {}).grupo_exibicao || '').trim();
+  const faltando = [];
+  if (!esteira_codigo) faltando.push('Código da Esteira');
+  if (!grupo_exibicao) faltando.push('Grupo de Exibição');
+  if (faltando.length) {
+    return { ok: false, erro: `Campo(s) obrigatório(s) inválido(s): ${faltando.join(', ')}.` };
+  }
+  return { ok: true, valores: { esteira_codigo, grupo_exibicao } };
+}
+
+const ESTEIRAS_BATCH_MAX = 500; // sanity bound — teto genérico, número real de esteiras é bem menor
+
+async function handleEsteirasBatch(req, res, soc, listar) {
+  const linhas = (req.body || {}).esteiras;
+  if (!Array.isArray(linhas) || !linhas.length) {
+    res.status(400).json({ ok: false, erro: 'Nenhuma linha pra importar.' });
+    return;
+  }
+  if (linhas.length > ESTEIRAS_BATCH_MAX) {
+    res.status(400).json({ ok: false, erro: `Máximo de ${ESTEIRAS_BATCH_MAX} linhas por importação (mandou ${linhas.length}).` });
+    return;
+  }
+
+  const erros = [];
+  const vistos = new Map();
+  const validas = [];
+  linhas.forEach((linha, i) => {
+    const n = i + 1;
+    const v = validarLinhaEsteira(linha);
+    if (!v.ok) { erros.push(`Linha ${n}: ${v.erro}`); return; }
+    const chave = v.valores.esteira_codigo;
+    if (vistos.has(chave)) { erros.push(`Linha ${n}: Código "${v.valores.esteira_codigo}" duplicado (já aparece na linha ${vistos.get(chave)}).`); return; }
+    vistos.set(chave, n);
+    validas.push(v.valores);
+  });
+  if (erros.length) {
+    res.status(400).json({ ok: false, erro: 'Arquivo fora do modelo esperado.', erros });
+    return;
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    for (const v of validas) {
+      await client.query(
+        `INSERT INTO de_para_esteiras (soc, esteira_codigo, grupo_exibicao, atualizado_em)
+         VALUES ($1,$2,$3, now())
+         ON CONFLICT (soc, esteira_codigo) DO UPDATE
+           SET grupo_exibicao = EXCLUDED.grupo_exibicao, atualizado_em = now()`,
+        [soc, v.esteira_codigo, v.grupo_exibicao]
+      );
+    }
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(502).json({ ok: false, erro: err.message });
+    return;
+  } finally {
+    client.release();
+  }
+
+  res.status(200).json({ ok: true, importadas: validas.length, esteiras: await listar() });
+}
+
+async function handleEsteiras(req, res) {
+  const soc = socDaSessaoOuErro(req, res);
+  if (!soc) return;
+
+  const listar = async () => {
+    const linhas = await lerPorSoc('de_para_esteiras', soc);
+    linhas.sort((a, b) => a.esteira_codigo.localeCompare(b.esteira_codigo));
+    return linhas;
+  };
+
+  if (req.method === 'GET') {
+    try {
+      res.status(200).json({ ok: true, esteiras: await listar() });
+    } catch (err) {
+      res.status(502).json({ ok: false, erro: err.message });
+    }
+    return;
+  }
+
+  if (req.method !== 'POST') {
+    res.status(405).json({ ok: false, erro: 'Use GET ou POST' });
+    return;
+  }
+
+  const action = (req.body || {}).action;
+
+  if (action === 'batch') {
+    await handleEsteirasBatch(req, res, soc, listar);
+    return;
+  }
+
+  const payload = (req.body || {}).esteira || {};
+  const esteira_codigo = String(payload.esteira_codigo || '').trim().toUpperCase();
+
+  if (action === 'delete') {
+    if (!esteira_codigo) {
+      res.status(400).json({ ok: false, erro: 'Código da Esteira obrigatório.' });
+      return;
+    }
+    try {
+      await pool.query('DELETE FROM de_para_esteiras WHERE soc = $1 AND esteira_codigo = $2', [soc, esteira_codigo]);
+      res.status(200).json({ ok: true, esteiras: await listar() });
+    } catch (err) {
+      res.status(502).json({ ok: false, erro: err.message });
+    }
+    return;
+  }
+
+  if (action !== 'create' && action !== 'update') {
+    res.status(400).json({ ok: false, erro: 'action inválida (use create, update, delete ou batch).' });
+    return;
+  }
+
+  const validacao = validarLinhaEsteira(payload);
+  if (!validacao.ok) {
+    res.status(400).json({ ok: false, erro: validacao.erro });
+    return;
+  }
+  const { grupo_exibicao } = validacao.valores;
+
+  try {
+    if (action === 'create') {
+      await pool.query(
+        `INSERT INTO de_para_esteiras (soc, esteira_codigo, grupo_exibicao, atualizado_em)
+         VALUES ($1, $2, $3, now())`,
+        [soc, esteira_codigo, grupo_exibicao]
+      );
+    } else {
+      const { rowCount } = await pool.query(
+        `UPDATE de_para_esteiras SET grupo_exibicao = $3, atualizado_em = now()
+          WHERE soc = $1 AND esteira_codigo = $2`,
+        [soc, esteira_codigo, grupo_exibicao]
+      );
+      if (!rowCount) {
+        res.status(404).json({ ok: false, erro: `Esteira com código "${esteira_codigo}" não encontrada pra esse SoC.` });
+        return;
+      }
+    }
+  } catch (err) {
+    // 23505 = unique_violation (soc, esteira_codigo)
+    if (err.code === '23505') {
+      res.status(400).json({ ok: false, erro: `Já existe uma esteira cadastrada com código "${esteira_codigo}" pra esse SoC.` });
+      return;
+    }
+    res.status(502).json({ ok: false, erro: err.message });
+    return;
+  }
+
+  try {
+    res.status(200).json({ ok: true, esteiras: await listar() });
+  } catch (err) {
+    res.status(502).json({ ok: false, erro: err.message });
+  }
 }
 
 module.exports = async (req, res) => {
+  if (req.query.esteiras !== undefined) {
+    await handleEsteiras(req, res);
+    return;
+  }
+
+  const soc = socDaSessaoOuErro(req, res);
+  if (!soc) return;
+
   let rows;
   try {
     ({ rows } = await fetchTabByGid(SHEET.spreadsheetId, SHEET.gid));
@@ -95,6 +293,22 @@ module.exports = async (req, res) => {
     res.status(502).json({ ok: false, erro: err.message });
     return;
   }
+
+  // Fonte da classificação esteira->grupo: de_para_esteiras no Postgres,
+  // filtrado pelo SoC da sessão — com FALLBACK pro mapa fixo (comportamento
+  // de antes da migração) só quando vazio/erro E o SoC é RJ2. RJ6/SC1/SC2
+  // sem cadastro classificam tudo como 'Non-TO' (mapa vazio, mesmo
+  // tratamento de "SoC sem dado" usado em Ruas/Árvore de KPIs/Kanban).
+  let deParaEsteirasPg = [];
+  try {
+    deParaEsteirasPg = await lerPorSoc('de_para_esteiras', soc);
+  } catch (err) {
+    console.error('[api/conveyor] lerPorSoc(de_para_esteiras) falhou, ' +
+      (soc === 'RJ2' ? 'caindo pro mapa fixo (RJ2)' : 'seguindo com mapa vazio') + ':', err.message);
+  }
+  const MAPA_ESTEIRAS = deParaEsteirasPg.length
+    ? buildMapaEsteiras(deParaEsteirasPg)
+    : (soc === 'RJ2' ? CLASSIFICACAO_ESTEIRA_RJ2_FALLBACK : new Map());
 
   const conveyor = rows
     .filter(r => r['data extração'] && r.hora !== '')
@@ -132,7 +346,7 @@ module.exports = async (req, res) => {
     opsId: r.ops || '',
     estacao: r.workstation || '',
     nomeEstacao: r['nome ws'] || '',
-    grupo: classificarEsteira(r.esteira),
+    grupo: classificarEsteira(r.esteira, MAPA_ESTEIRAS),
     turno: r.turno || '',
     totalProcessamento: toNum(r.pacotes),
   }));

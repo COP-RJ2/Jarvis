@@ -21,6 +21,7 @@ const TABELAS_PERMITIDAS = new Set([
   'backlog_snapshots',
   'forecast_diario',
   'de_para_ruas',
+  'de_para_esteiras',
   'de_para_labor_processos',
   'de_para_arvore_kpis',
   'socs',

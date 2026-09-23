@@ -5564,6 +5564,7 @@
           <div class="section-subtitle">Performance por grupo de estação, hora a hora</div>
         </div>
         <div class="section-dl-group">
+          <button class="dl-btn dl-btn-csv" onclick="esteirasOpenModal()"><i class="fas fa-conveyor-belt"></i> Configurar Esteiras</button>
           <button class="spr-pipboy-btn" onclick="cnvOpenPipboy()"><i class="fas fa-satellite-dish"></i> COP Boy</button>
           <button class="dl-btn dl-btn-csv" onclick="loadConveyor()"><i class="fas fa-rotate-right"></i> Atualizar</button>
         </div>
@@ -7525,6 +7526,77 @@
         <div class="modal-footer" style="padding:14px 0 0">
           <button type="button" class="btn btn-outline" onclick="ruasBatchCancelar()">Cancelar</button>
           <button type="button" class="btn btn-primary" id="ruas-batch-confirmar-btn" onclick="ruasBatchConfirmar()"><i class="fas fa-upload"></i> Confirmar importação</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal "Configurar Esteiras" (Conveyor) — pedido do Roberto em 2026-09-23:
+     mesmo padrão do ruas-modal-overlay acima, cada SoC autogerencia seu
+     de-para de esteira->grupo de exibição direto pela tela. -->
+<div class="modal-overlay" id="esteiras-modal-overlay" onclick="if(event.target===this) esteirasCloseModal()">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="esteiras-modal-label" style="max-width:680px">
+    <div class="modal-header">
+      <span class="modal-title" id="esteiras-modal-label"><i class="fas fa-conveyor-belt" style="color:var(--accent-ll);margin-right:8px"></i>Configurar Esteiras</span>
+      <button class="modal-close" onclick="esteirasCloseModal()"><i class="fas fa-xmark"></i></button>
+    </div>
+    <div style="padding:0 20px 4px;font-size:12px;color:var(--text-muted)">De-para de esteiras do seu SoC: Código da Esteira (ex.: POBA, P1) e Grupo de Exibição (ex.: OBA/OBB, Esteira A) usados no Conveyor. Código não cadastrado cai em "Non-TO".</div>
+
+    <div style="display:flex;gap:8px;padding:10px 20px 0">
+      <button type="button" class="btn btn-outline" id="esteiras-tab-btn-individual" onclick="esteirasTrocarAba('individual')" style="flex:1">Individual</button>
+      <button type="button" class="btn btn-outline" id="esteiras-tab-btn-batch" onclick="esteirasTrocarAba('batch')" style="flex:1"><i class="fas fa-file-csv"></i> Importar em massa</button>
+    </div>
+
+    <div id="esteiras-tab-individual">
+      <form id="esteiras-form" onsubmit="esteirasSubmit(event)" style="padding:12px 20px 0">
+        <input type="hidden" id="esteiras-editing-id"/>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Código da Esteira *</label>
+            <input type="text" class="form-input" id="esteiras-f-codigo" required placeholder="Ex.: POBA"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Grupo de Exibição *</label>
+            <input type="text" class="form-input" id="esteiras-f-grupo" required placeholder="Ex.: OBA/OBB"/>
+          </div>
+        </div>
+        <div class="modal-footer" style="padding:4px 0 16px">
+          <button type="button" class="btn btn-outline" id="esteiras-cancel-edit-btn" onclick="esteirasCancelEdit()" style="display:none">Cancelar edição</button>
+          <button type="submit" class="btn btn-primary" id="esteiras-submit-btn"><i class="fas fa-plus"></i> Adicionar Esteira</button>
+        </div>
+      </form>
+      <div style="padding:0 20px 20px;max-height:50vh;overflow:auto">
+        <table class="clst-table" style="width:100%">
+          <thead><tr><th>Código da Esteira</th><th>Grupo de Exibição</th><th></th></tr></thead>
+          <tbody id="esteiras-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="esteiras-tab-batch" style="display:none;padding:12px 20px 20px">
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">
+        Baixe o modelo, preencha uma linha por esteira e suba o arquivo de volta. Linhas com código já cadastrado atualizam o grupo existente; as demais são criadas. Só importa se o arquivo inteiro estiver dentro do modelo — se alguma linha tiver erro, nada é importado.
+      </div>
+      <button type="button" class="btn btn-outline" onclick="esteirasBatchBaixarModelo()" style="margin-bottom:14px"><i class="fas fa-download"></i> Baixar modelo CSV</button>
+
+      <div class="form-group">
+        <label class="form-label">Arquivo CSV</label>
+        <input type="file" class="form-input" id="esteiras-batch-file" accept=".csv" onchange="esteirasBatchArquivoSelecionado(this)"/>
+      </div>
+
+      <div id="esteiras-batch-preview" style="display:none;margin-top:12px">
+        <div id="esteiras-batch-preview-resumo" style="font-size:12px;margin-bottom:8px"></div>
+        <div style="max-height:30vh;overflow:auto">
+          <table class="clst-table" style="width:100%">
+            <thead><tr><th>#</th><th>Código da Esteira</th><th>Grupo de Exibição</th></tr></thead>
+            <tbody id="esteiras-batch-preview-body"></tbody>
+          </table>
+        </div>
+        <div id="esteiras-batch-erros" style="margin-top:10px;font-size:12px;color:var(--red)"></div>
+        <div class="modal-footer" style="padding:14px 0 0">
+          <button type="button" class="btn btn-outline" onclick="esteirasBatchCancelar()">Cancelar</button>
+          <button type="button" class="btn btn-primary" id="esteiras-batch-confirmar-btn" onclick="esteirasBatchConfirmar()"><i class="fas fa-upload"></i> Confirmar importação</button>
         </div>
       </div>
     </div>
@@ -16543,6 +16615,266 @@ async function ruasBatchConfirmar(){
     ruasTrocarAba('individual');
     ruasRenderTable();
     showToast(`✓ ${j.importadas} rua(s) importada(s)!`);
+  } catch(err){
+    showToast('Erro: '+err.message, true);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+/* ================================================================
+   CONFIGURAR ESTEIRAS (Conveyor) — CRUD do de-para esteira->grupo de
+   exibição por SoC, pedido do Roberto em 2026-09-23 (mesmo padrão de
+   CONFIGURAR RUAS acima). Persistido via /api/conveyor?esteiras=1 (ver
+   handleEsteiras em api/conveyor.js). Código vira readonly durante edição
+   porque é chave primária (soc, esteira_codigo).
+================================================================ */
+let esteirasCache = [];
+
+function esteirasRenderTable(){
+  const tbody = document.getElementById('esteiras-table-body');
+  if(!tbody) return;
+  if(!esteirasCache.length){
+    tbody.innerHTML = '<tr><td colspan="3" class="switch-hint">Nenhuma esteira cadastrada ainda pro seu SoC. Use o formulário acima pra adicionar.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = esteirasCache.map(r => `
+    <tr>
+      <td>${pulsoEscHtml(r.esteira_codigo)}</td>
+      <td>${pulsoEscHtml(r.grupo_exibicao)}</td>
+      <td style="white-space:nowrap">
+        <button type="button" class="data-card-action-btn" onclick="esteirasEdit('${pulsoEscHtml(r.esteira_codigo)}')" title="Editar"><i class="fas fa-pen"></i></button>
+        <button type="button" class="data-card-action-btn" onclick="esteirasDelete('${pulsoEscHtml(r.esteira_codigo)}')" title="Excluir"><i class="fas fa-trash"></i></button>
+      </td>
+    </tr>`).join('');
+}
+
+function esteirasTrocarAba(aba){
+  const individual = aba === 'individual';
+  document.getElementById('esteiras-tab-individual').style.display = individual ? '' : 'none';
+  document.getElementById('esteiras-tab-batch').style.display = individual ? 'none' : '';
+  document.getElementById('esteiras-tab-btn-individual').className = 'btn ' + (individual ? 'btn-primary' : 'btn-outline');
+  document.getElementById('esteiras-tab-btn-batch').className = 'btn ' + (individual ? 'btn-outline' : 'btn-primary');
+  if (individual) esteirasBatchCancelar();
+}
+
+async function esteirasOpenModal(){
+  document.getElementById('esteiras-modal-overlay').classList.add('open');
+  esteirasCancelEdit();
+  esteirasTrocarAba('individual');
+  const tbody = document.getElementById('esteiras-table-body');
+  if(tbody) tbody.innerHTML = '<tr><td colspan="3" class="switch-hint">Carregando…</td></tr>';
+  try {
+    const r = await fetch('/api/conveyor?esteiras=1');
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.erro || 'falha ao carregar esteiras');
+    esteirasCache = j.esteiras;
+    esteirasRenderTable();
+  } catch(err){
+    if(tbody) tbody.innerHTML = `<tr><td colspan="3" class="switch-hint">Erro: ${pulsoEscHtml(err.message)}</td></tr>`;
+  }
+}
+function esteirasCloseModal(){
+  document.getElementById('esteiras-modal-overlay').classList.remove('open');
+  // Recarrega o board do Conveyor pra refletir eventuais mudanças sem F5.
+  loadConveyor();
+}
+
+function esteirasEdit(esteiraCodigo){
+  const r = esteirasCache.find(x => x.esteira_codigo === esteiraCodigo);
+  if(!r) return;
+  document.getElementById('esteiras-editing-id').value = r.esteira_codigo;
+  document.getElementById('esteiras-f-codigo').value = r.esteira_codigo;
+  document.getElementById('esteiras-f-codigo').readOnly = true;
+  document.getElementById('esteiras-f-grupo').value = r.grupo_exibicao;
+  document.getElementById('esteiras-submit-btn').innerHTML = '<i class="fas fa-check"></i> Salvar Alterações';
+  document.getElementById('esteiras-cancel-edit-btn').style.display = '';
+  document.getElementById('esteiras-f-grupo').focus();
+}
+function esteirasCancelEdit(){
+  document.getElementById('esteiras-form').reset();
+  document.getElementById('esteiras-editing-id').value = '';
+  document.getElementById('esteiras-f-codigo').readOnly = false;
+  document.getElementById('esteiras-submit-btn').innerHTML = '<i class="fas fa-plus"></i> Adicionar Esteira';
+  document.getElementById('esteiras-cancel-edit-btn').style.display = 'none';
+}
+
+async function esteirasSubmit(ev){
+  ev.preventDefault();
+  const editingId = document.getElementById('esteiras-editing-id').value;
+  const esteira = {
+    esteira_codigo: document.getElementById('esteiras-f-codigo').value.trim(),
+    grupo_exibicao: document.getElementById('esteiras-f-grupo').value.trim(),
+  };
+  const btn = document.getElementById('esteiras-submit-btn');
+  if(btn) btn.disabled = true;
+  try {
+    const r = await fetch('/api/conveyor?esteiras=1', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ action: editingId ? 'update' : 'create', esteira }),
+    });
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.erro || 'falha ao salvar');
+    esteirasCache = j.esteiras;
+    esteirasRenderTable();
+    esteirasCancelEdit();
+    showToast(editingId ? '✓ Esteira atualizada!' : '✓ Esteira adicionada!');
+  } catch(err){
+    showToast('Erro: '+err.message, true);
+  } finally {
+    if(btn) btn.disabled = false;
+  }
+}
+
+async function esteirasDelete(esteiraCodigo){
+  const r = esteirasCache.find(x => x.esteira_codigo === esteiraCodigo);
+  if(!r) return;
+  if(!confirm(`Excluir a esteira "${r.esteira_codigo}" (grupo: ${r.grupo_exibicao})? Essa ação não pode ser desfeita.`)) return;
+  try {
+    const resp = await fetch('/api/conveyor?esteiras=1', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ action:'delete', esteira:{ esteira_codigo: esteiraCodigo } }),
+    });
+    const j = await resp.json();
+    if(!j.ok) throw new Error(j.erro || 'falha ao excluir');
+    esteirasCache = j.esteiras;
+    esteirasRenderTable();
+    if(document.getElementById('esteiras-editing-id').value === esteiraCodigo) esteirasCancelEdit();
+    showToast('✓ Esteira excluída.');
+  } catch(err){
+    showToast('Erro: '+err.message, true);
+  }
+}
+
+// ── Importar em massa (mesmo padrão de ruasBatch*) ──────────────────────
+const ESTEIRAS_BATCH_HEADER = ['esteira_codigo', 'grupo_exibicao'];
+let esteirasBatchLinhas = null;
+
+function esteirasBatchBaixarModelo(){
+  pulsoDownloadCsv('modelo_esteiras.csv', ESTEIRAS_BATCH_HEADER, [
+    ['POBA', 'OBA/OBB'],
+  ]);
+}
+
+function esteirasBatchParseCsv(texto){
+  const linhas = texto.replace(/^﻿/, '').split(/\r?\n/).filter(l => l.trim() !== '');
+  if (!linhas.length) return { header: [], linhas: [] };
+  const header = linhas[0].split(';').map(h => h.replace(/"/g, '').trim().toLowerCase());
+  const dados = linhas.slice(1).map(l => {
+    const vals = l.split(';').map(v => v.replace(/^"|"$/g, '').trim());
+    const obj = {};
+    header.forEach((h, i) => { obj[h] = vals[i] !== undefined ? vals[i] : ''; });
+    return obj;
+  });
+  return { header, linhas: dados };
+}
+
+function esteirasBatchValidarLinha(linha){
+  const esteira_codigo = String(linha.esteira_codigo || '').trim();
+  const grupo_exibicao = String(linha.grupo_exibicao || '').trim();
+  const faltando = [];
+  if (!esteira_codigo) faltando.push('Código da Esteira');
+  if (!grupo_exibicao) faltando.push('Grupo de Exibição');
+  if (faltando.length) return { ok: false, erro: `Campo(s) inválido(s): ${faltando.join(', ')}` };
+  return { ok: true, valores: { esteira_codigo, grupo_exibicao } };
+}
+
+function esteirasBatchArquivoSelecionado(input){
+  const file = input.files && input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => esteirasBatchProcessarTexto(String(reader.result || ''));
+  reader.onerror = () => showToast('Erro ao ler o arquivo.', true);
+  reader.readAsText(file, 'utf-8');
+}
+
+function esteirasBatchProcessarTexto(texto){
+  const { header, linhas } = esteirasBatchParseCsv(texto);
+  const preview = document.getElementById('esteiras-batch-preview');
+  const resumo = document.getElementById('esteiras-batch-preview-resumo');
+  const errosEl = document.getElementById('esteiras-batch-erros');
+  const tbody = document.getElementById('esteiras-batch-preview-body');
+  const confirmarBtn = document.getElementById('esteiras-batch-confirmar-btn');
+  preview.style.display = '';
+
+  const headerEsperado = ESTEIRAS_BATCH_HEADER.join(';');
+  if (header.join(';') !== headerEsperado) {
+    resumo.textContent = '';
+    tbody.innerHTML = '';
+    errosEl.textContent = `Cabeçalho do arquivo não bate com o modelo esperado. Esperado: "${headerEsperado}" — encontrado: "${header.join(';')}". Baixe o modelo de novo e não altere a primeira linha.`;
+    confirmarBtn.disabled = true;
+    esteirasBatchLinhas = null;
+    return;
+  }
+  if (!linhas.length) {
+    resumo.textContent = '';
+    tbody.innerHTML = '';
+    errosEl.textContent = 'Arquivo sem nenhuma linha de dado (só o cabeçalho).';
+    confirmarBtn.disabled = true;
+    esteirasBatchLinhas = null;
+    return;
+  }
+
+  const erros = [];
+  const vistos = new Map();
+  const validas = [];
+  linhas.forEach((linha, i) => {
+    const n = i + 1;
+    const v = esteirasBatchValidarLinha(linha);
+    if (!v.ok) { erros.push(`Linha ${n}: ${v.erro}`); return; }
+    const chave = v.valores.esteira_codigo.toLowerCase();
+    if (vistos.has(chave)) { erros.push(`Linha ${n}: Código "${v.valores.esteira_codigo}" duplicado (já aparece na linha ${vistos.get(chave)}).`); return; }
+    vistos.set(chave, n);
+    validas.push(v.valores);
+  });
+
+  tbody.innerHTML = linhas.map((linha, i) => {
+    const v = esteirasBatchValidarLinha(linha);
+    const cor = v.ok ? '' : 'color:var(--red)';
+    return `<tr style="${cor}"><td>${i+1}</td><td>${pulsoEscHtml(linha.esteira_codigo||'')}</td><td>${pulsoEscHtml(linha.grupo_exibicao||'')}</td></tr>`;
+  }).join('');
+
+  if (erros.length) {
+    resumo.textContent = `${linhas.length} linha(s) no arquivo, ${erros.length} com erro.`;
+    errosEl.innerHTML = 'Corrija e suba de novo — nenhuma linha foi importada:<br>' + erros.map(pulsoEscHtml).join('<br>');
+    confirmarBtn.disabled = true;
+    esteirasBatchLinhas = null;
+  } else {
+    resumo.textContent = `${validas.length} linha(s) prontas pra importar.`;
+    errosEl.textContent = '';
+    confirmarBtn.disabled = false;
+    esteirasBatchLinhas = validas;
+  }
+}
+
+function esteirasBatchCancelar(){
+  esteirasBatchLinhas = null;
+  const fileInput = document.getElementById('esteiras-batch-file');
+  if (fileInput) fileInput.value = '';
+  const preview = document.getElementById('esteiras-batch-preview');
+  if (preview) preview.style.display = 'none';
+}
+
+async function esteirasBatchConfirmar(){
+  if (!esteirasBatchLinhas || !esteirasBatchLinhas.length) return;
+  const btn = document.getElementById('esteiras-batch-confirmar-btn');
+  if (btn) btn.disabled = true;
+  try {
+    const r = await fetch('/api/conveyor?esteiras=1', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ action: 'batch', esteiras: esteirasBatchLinhas }),
+    });
+    const j = await r.json();
+    if (!j.ok) {
+      const detalhe = Array.isArray(j.erros) && j.erros.length ? '<br>' + j.erros.map(pulsoEscHtml).join('<br>') : '';
+      document.getElementById('esteiras-batch-erros').innerHTML = pulsoEscHtml(j.erro || 'falha ao importar') + detalhe;
+      return;
+    }
+    esteirasCache = j.esteiras;
+    esteirasBatchCancelar();
+    esteirasTrocarAba('individual');
+    esteirasRenderTable();
+    showToast(`✓ ${j.importadas} esteira(s) importada(s)!`);
   } catch(err){
     showToast('Erro: '+err.message, true);
   } finally {

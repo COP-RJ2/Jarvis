@@ -122,6 +122,19 @@ CREATE TABLE IF NOT EXISTS de_para_arvore_kpis (
   PRIMARY KEY (soc, kpi_id)
 );
 
+-- Substitui a função classificarEsteira() hardcoded em api/conveyor.js
+-- (pedido do Roberto em 2026-09-23: outros SoCs têm workstations/esteiras
+-- diferentes de RJ2, não dá pra manter fixo no código). Código não
+-- encontrado na tabela cai no fallback "Non-TO" (mesmo catch-all de hoje),
+-- não precisa de linha explícita pra isso.
+CREATE TABLE IF NOT EXISTS de_para_esteiras (
+  soc              text NOT NULL REFERENCES socs(soc),
+  esteira_codigo   text NOT NULL,      -- ex: "POBA", "P1", "PTIN"
+  grupo_exibicao   text NOT NULL,      -- ex: "OBA/OBB", "Esteira A", "Tintas"
+  atualizado_em    timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (soc, esteira_codigo)
+);
+
 
 -- Auditoria genérica de mudanças nos de-para (pedido do Roberto em
 -- 2026-09-16) — 1 tabela só pra todos os de_para_*, em vez de duplicar

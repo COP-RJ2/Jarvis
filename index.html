@@ -7496,8 +7496,8 @@
         </div>
       </form>
       <div style="padding:0 20px 20px;max-height:50vh;overflow:auto">
-        <table class="clst-table" style="width:100%">
-          <thead><tr><th>Staging Area ID</th><th>Rua</th><th>Capacidade</th><th>Cluster Esperado</th><th></th></tr></thead>
+        <table class="clst-table" style="width:100%;min-width:0">
+          <thead><tr><th>Staging Area ID</th><th>Rua</th><th>Capacidade</th><th>Cluster Esperado</th><th style="position:sticky;right:0">Ações</th></tr></thead>
           <tbody id="ruas-table-body"></tbody>
         </table>
       </div>
@@ -7567,8 +7567,8 @@
         </div>
       </form>
       <div style="padding:0 20px 20px;max-height:50vh;overflow:auto">
-        <table class="clst-table" style="width:100%">
-          <thead><tr><th>Código da Esteira</th><th>Grupo de Exibição</th><th></th></tr></thead>
+        <table class="clst-table" style="width:100%;min-width:0">
+          <thead><tr><th>Código da Esteira</th><th>Grupo de Exibição</th><th style="position:sticky;right:0">Ações</th></tr></thead>
           <tbody id="esteiras-table-body"></tbody>
         </table>
       </div>
@@ -16367,7 +16367,7 @@ function ruasRenderTable(){
       <td>${pulsoEscHtml(r.rua)}</td>
       <td>${pulsoEscHtml(String(r.capacidade))}</td>
       <td>${r.cluster_esperado ? pulsoEscHtml(r.cluster_esperado) : '—'}</td>
-      <td style="white-space:nowrap">
+      <td style="white-space:nowrap;position:sticky;right:0;background:var(--surface)">
         <button type="button" class="data-card-action-btn" onclick="ruasEdit('${pulsoEscHtml(r.staging_area_id)}')" title="Editar"><i class="fas fa-pen"></i></button>
         <button type="button" class="data-card-action-btn" onclick="ruasDelete('${pulsoEscHtml(r.staging_area_id)}')" title="Excluir"><i class="fas fa-trash"></i></button>
       </td>
@@ -16642,7 +16642,7 @@ function esteirasRenderTable(){
     <tr>
       <td>${pulsoEscHtml(r.esteira_codigo)}</td>
       <td>${pulsoEscHtml(r.grupo_exibicao)}</td>
-      <td style="white-space:nowrap">
+      <td style="white-space:nowrap;position:sticky;right:0;background:var(--surface)">
         <button type="button" class="data-card-action-btn" onclick="esteirasEdit('${pulsoEscHtml(r.esteira_codigo)}')" title="Editar"><i class="fas fa-pen"></i></button>
         <button type="button" class="data-card-action-btn" onclick="esteirasDelete('${pulsoEscHtml(r.esteira_codigo)}')" title="Excluir"><i class="fas fa-trash"></i></button>
       </td>

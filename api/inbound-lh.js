@@ -27,6 +27,7 @@
  */
 const { fetchTabByGid, readRange, writeRange, resolveTitle, ensureSheetExists } = require('./_google');
 const { toNum, hojeOperacionalIso, dataOperacionalDe } = require('./_period');
+const { socDaSessaoOuErro } = require('./_users');
 
 const SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '1485919739' };
 
@@ -275,6 +276,19 @@ module.exports = async (req, res) => {
   }
   if (req.query.fila !== undefined) {
     await buildFila(req, res);
+    return;
+  }
+
+  const soc = socDaSessaoOuErro(req, res);
+  if (!soc) return;
+
+  // inbound_lh_pulso é implicitamente RJ2 (sem coluna de SoC) — pra
+  // qualquer outro SoC, nem busca (melhor nada do que misturar dado de RJ2
+  // — pedido do Roberto em 2026-09-24). Mesma forma "sem dado" já usada
+  // abaixo quando a aba vem vazia. (?tags/?fila ficam fora deste gate, fora
+  // do escopo desta varredura.)
+  if (soc !== 'RJ2') {
+    res.status(200).json({ ok: true, de: null, ate: null, rows: [], opcoes: { turnos: [], status: [], origens: [], veiculos: [], solicitacoes: [] }, cobertura: { inicio: null, fim: null } });
     return;
   }
 

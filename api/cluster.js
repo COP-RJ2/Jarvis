@@ -655,6 +655,32 @@ module.exports = async (req, res) => {
   const soc = socDaSessaoOuErro(req, res);
   if (!soc) return;
 
+  // Dado de FATO da Clusterização (cluster_pulso/rawdata_out_pulso, os
+  // TOs/pacotes reais — diferente do de-para de ruas acima, que já é
+  // multi-SoC via Postgres) é implicitamente RJ2 (sem coluna de SoC) — pra
+  // qualquer outro SoC, nem busca (melhor nada do que misturar dado de RJ2
+  // — pedido do Roberto em 2026-09-24). Mesma forma da resposta de sucesso,
+  // só com os campos de dado vazios/zerados.
+  if (soc !== 'RJ2') {
+    const atualVazio = aggregate([]);
+    atualVazio.posicoesOcupadas = 0;
+    atualVazio.ocupacaoTotalPct = 0;
+    atualVazio.ruasCorretas = 0;
+    atualVazio.ruasIncorretas = 0;
+    atualVazio.pctClusterizacao = 0;
+    atualVazio.att = '—';
+    res.status(200).json({
+      ok: true,
+      atualizadoEm: new Date().toISOString(),
+      atual: atualVazio,
+      grade: [], capacidadeTotal: 0, totalRuas: 0, pendentesAtual: 0, topDestinos: [],
+      tos: [], tosTotal: 0,
+      opcoesFiltro: { to_pack: [], destino: [], rua: [] },
+      esteira: null,
+    });
+    return;
+  }
+
   let rows, outboundRawRows;
   try {
     ({ rows } = await fetchTabByGid(CLUSTER_SHEET.spreadsheetId, CLUSTER_SHEET.gid));

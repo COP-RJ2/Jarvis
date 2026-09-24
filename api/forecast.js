@@ -44,6 +44,7 @@
  */
 const { fetchTabByGid } = require('./_google');
 const { toNum, hojeOperacionalIso } = require('./_period');
+const { socDaSessaoOuErro } = require('./_users');
 
 const SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '202012183' };
 
@@ -177,6 +178,24 @@ function pctDelta(atualV, anteriorV) {
 }
 
 module.exports = async (req, res) => {
+  const soc = socDaSessaoOuErro(req, res);
+  if (!soc) return;
+
+  // forecast_backlog_pulso (colunas H-M) é implicitamente RJ2 (sem coluna
+  // de SoC) — pra qualquer outro SoC, nem busca (melhor nada do que
+  // misturar dado de RJ2 — pedido do Roberto em 2026-09-24). Mesma forma
+  // "sem dado" já usada abaixo quando a aba vem vazia.
+  if (soc !== 'RJ2') {
+    const zeroCard = { forecast: 0, forecastVar: null, adoMedio: 0, adoMedioVar: null, transhipment: 0, transhipmentVar: null, adoTranshipment: 0, adoTranshipmentVar: null };
+    res.status(200).json({
+      ok: true, data: null, mes: null, compDe: null, compAte: null, atual: { ...ZERO_AGG },
+      semanas: [], mesTotal: { ...ZERO_AGG }, quartilMensal: { ...ZERO_AGG }, adoQuartil: { ...ZERO_AGG },
+      cardsPeriodo: { mes: zeroCard, week: { ...zeroCard }, dia: { ...zeroCard } },
+      cobertura: { inicio: null, fim: null },
+    });
+    return;
+  }
+
   let rows;
   try {
     ({ rows } = await fetchTabByGid(SHEET.spreadsheetId, SHEET.gid));

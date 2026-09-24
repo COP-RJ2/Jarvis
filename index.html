@@ -8316,11 +8316,16 @@ async function authEscolherSoc(soc, irParaControle){
       btn.innerHTML = '<i class="fas fa-arrow-right-to-bracket"></i> Continuar';
       return;
     }
-    document.getElementById('login-step-soc').style.display = 'none';
-    btn.disabled = false;
-    btn.innerHTML = '<i class="fas fa-arrow-right-to-bracket"></i> Continuar';
-    enterPortal(j.user);
-    if(irParaControle) navigateTo('controle', document.querySelector('.nav-item[data-section="controle"]'));
+    // Reload completo (pedido do Roberto em 2026-09-24), não enterPortal()
+    // in-place: qualquer troca de SoC (login inicial OU "Trocar SoC" no
+    // menu) tem que zerar TODO estado JS em memória (caches de tela como
+    // ruasCache/esteirasCache/PULSO_STATE/RAW de cada seção) — um reload de
+    // página é a única garantia de que nada de um SoC anterior sobrevive
+    // "preso" no navegador por algum problema de atualização de cache.
+    // localStorage não guarda dado operacional (só preferências de UI como
+    // tema/sidebar/TV mode — TV mode já é por-SoC desde a migração
+    // anterior), então não precisa de limpeza própria aqui.
+    location.href = irParaControle ? (location.pathname + '?ir=controle') : location.pathname;
   } catch(err){
     authShowError('Falha de conexão — tenta de novo.');
     btn.disabled = false;
@@ -8447,6 +8452,15 @@ function enterPortal(user){
   tvModeInit();
   tvcfgSeedDefaultPresets();
   jarvisApplyPageTags();
+
+  // Atalho pro Painel de Controle sobrevivendo ao reload completo (pedido
+  // do Roberto em 2026-09-22, ajustado em 2026-09-24 quando a troca de SoC
+  // passou a forçar location.reload() em vez de enterPortal() in-place —
+  // ver authEscolherSoc). "?ir=controle" é setado ali antes do reload.
+  if(new URLSearchParams(location.search).get('ir') === 'controle'){
+    history.replaceState(null, '', location.pathname);
+    navigateTo('controle', document.querySelector('.nav-item[data-section="controle"]'));
+  }
 }
 
 /* ================================================================

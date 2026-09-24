@@ -28,6 +28,7 @@
  */
 const { fetchTabByGid } = require('./_google');
 const { fmtDate, toNum, parseCSV, pctDelta } = require('./_period');
+const { socDaSessaoOuErro } = require('./_users');
 
 const LEFTOVER_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '352174025' };
 const OUTBOUND_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '0' };
@@ -100,6 +101,29 @@ function aggregate(rows) {
 }
 
 module.exports = async (req, res) => {
+  const soc = socDaSessaoOuErro(req, res);
+  if (!soc) return;
+
+  // leftover_pulso/rawdata_out_pulso são implicitamente RJ2 (sem coluna de
+  // SoC) — pra qualquer outro SoC, nem busca (melhor nada do que misturar
+  // dado de RJ2 — pedido do Roberto em 2026-09-24). Mesma forma da resposta
+  // de sucesso, só com os campos de dado vazios/zerados.
+  if (soc !== 'RJ2') {
+    const atualVazio = aggregate([]);
+    res.status(200).json({
+      ok: true,
+      atualizadoEm: new Date().toISOString(),
+      modo: 'recente',
+      intervalo: { inicio: null, fim: null },
+      cobertura: { inicio: null, fim: null },
+      atual: atualVazio, anterior: atualVazio, delta: Object.fromEntries(Object.keys(atualVazio).map(k => [k, null])),
+      leftovers: [], leftoversTotal: 0,
+      porTransportadora: [],
+      opcoesFiltro: { turno: [], type_cpt: [], hub: [], causa1: [], causa2: [], transportadora: [] },
+    });
+    return;
+  }
+
   let rows, outRows;
   try {
     [{ rows }, { rows: outRows }] = await Promise.all([

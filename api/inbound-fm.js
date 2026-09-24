@@ -17,6 +17,7 @@
  */
 const { fetchTabByGid } = require('./_google');
 const { toNum, hojeOperacionalIso, dataOperacionalDe } = require('./_period');
+const { socDaSessaoOuErro } = require('./_users');
 
 const SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '1026737209' };
 // Docas abertas (workstations do FM) — pedido do Roberto em 2026-08-26,
@@ -44,6 +45,18 @@ function turnoDeHora(hora) {
 }
 
 module.exports = async (req, res) => {
+  const soc = socDaSessaoOuErro(req, res);
+  if (!soc) return;
+
+  // inbound_fm_pulso/fmbeep_pulso são implicitamente RJ2 (sem coluna de
+  // SoC) — pra qualquer outro SoC, nem busca (melhor nada do que misturar
+  // dado de RJ2 — pedido do Roberto em 2026-09-24). Mesma forma "sem dado"
+  // já usada abaixo quando a aba vem vazia.
+  if (soc !== 'RJ2') {
+    res.status(200).json({ ok: true, de: null, ate: null, rows: [], docas: [], opcoes: { turnos: [], agencias: [] }, cobertura: { inicio: null, fim: null } });
+    return;
+  }
+
   let rows, docaRows;
   try {
     [{ rows }, { rows: docaRows }] = await Promise.all([

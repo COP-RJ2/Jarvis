@@ -49,6 +49,7 @@
  */
 const { fetchTabByGid } = require('./_google');
 const { toNum, dataOperacionalDe, hojeOperacionalIso, ordemHoraCutoff } = require('./_period');
+const { socDaSessaoOuErro } = require('./_users');
 
 const SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '202012183' };
 
@@ -63,6 +64,24 @@ function dataHoraDe(v) {
 }
 
 module.exports = async (req, res) => {
+  const soc = socDaSessaoOuErro(req, res);
+  if (!soc) return;
+
+  // Aba forecast_backlog_pulso é implicitamente RJ2 (sem coluna de SoC) —
+  // pra qualquer outro SoC, nem busca (melhor nada do que misturar dado de
+  // RJ2 — pedido do Roberto em 2026-09-24, mesmo gate de cluster.js/
+  // conveyor.js). Mesma forma da resposta "sem dado" já usada abaixo quando
+  // a aba vem vazia.
+  if (soc !== 'RJ2') {
+    res.status(200).json({
+      ok: true, date: null, rows: [],
+      opcoes: { perfis: [], faixas: [], horas: [] },
+      ultimaAtualizacao: null,
+      cobertura: { inicio: null, fim: null },
+    });
+    return;
+  }
+
   let rows;
   try {
     ({ rows } = await fetchTabByGid(SHEET.spreadsheetId, SHEET.gid));

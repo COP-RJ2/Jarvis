@@ -21,6 +21,7 @@
  */
 const { fetchTabByGid } = require('./_google');
 const { fmtDate, toNum, parseCSV, pctDelta } = require('./_period');
+const { socDaSessaoOuErro } = require('./_users');
 
 const SPR_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '1276487267' };
 
@@ -56,6 +57,28 @@ function aggregate(rows) {
 }
 
 module.exports = async (req, res) => {
+  const soc = socDaSessaoOuErro(req, res);
+  if (!soc) return;
+
+  // spr_pulso é implicitamente RJ2 (sem coluna de SoC) — pra qualquer outro
+  // SoC, nem busca (melhor nada do que misturar dado de RJ2 — pedido do
+  // Roberto em 2026-09-24). Mesma forma da resposta de sucesso, só com os
+  // campos de dado vazios/zerados.
+  if (soc !== 'RJ2') {
+    const atualVazio = aggregate([]);
+    res.status(200).json({
+      ok: true,
+      atualizadoEm: new Date().toISOString(),
+      modo: 'recente',
+      intervalo: { inicio: null, fim: null },
+      cobertura: { inicio: null, fim: null },
+      atual: atualVazio, anterior: atualVazio, delta: Object.fromEntries(Object.keys(atualVazio).map(k => [k, null])),
+      viagens: [], viagensTotal: 0,
+      opcoesFiltro: { turno: [], solicitation_by: [], destination_station_code: [], used_vehicle: [], used_agency_name: [], canal: [] },
+    });
+    return;
+  }
+
   let rows;
   try {
     ({ rows } = await fetchTabByGid(SPR_SHEET.spreadsheetId, SPR_SHEET.gid));

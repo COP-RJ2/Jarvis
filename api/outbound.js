@@ -25,6 +25,7 @@
 const { fetchTabByGid, readRange, writeRange, ensureSheetExists, resolveTitle } = require('./_google');
 const { parseCSV, hojeOperacionalIso, dataOperacionalDe, toNum } = require('./_period');
 const { enrich, aggregate, toCarroRow, tipoCarregamento } = require('./_outbound');
+const { socDaSessaoOuErro } = require('./_users');
 
 const OUTBOUND_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '0' };
 // Monitor - Live (subaba nova dentro de Outbound, pedido do Roberto em
@@ -433,6 +434,30 @@ module.exports = async (req, res) => {
       return;
     }
     await buildMonitor(req, res);
+    return;
+  }
+
+  const soc = socDaSessaoOuErro(req, res);
+  if (!soc) return;
+
+  // rawdata_out_pulso é implicitamente RJ2 (sem coluna de SoC) — pra
+  // qualquer outro SoC, nem busca (melhor nada do que misturar dado de RJ2
+  // — pedido do Roberto em 2026-09-24). Mesma forma da resposta de sucesso,
+  // só com os campos de dado vazios/zerados. (?monitor fica fora deste
+  // gate, fora do escopo desta varredura.)
+  if (soc !== 'RJ2') {
+    res.status(200).json({
+      ok: true,
+      atualizadoEm: new Date().toISOString(),
+      modo: 'hoje',
+      intervalo: { inicio: null, fim: null },
+      cobertura: { inicio: null, fim: null },
+      atual: aggregate([]),
+      porHoraCpt: { planejado: Array(24).fill(0), realizado: Array(24).fill(0), cancelado: Array(24).fill(0) },
+      diasNoPeriodo: 0,
+      carros: [], carrosTotal: 0,
+      opcoesFiltro: { turno: ['T1', 'T2', 'T3'], status: [], solicitante: [], destino: [], agencia: [], veiculo: [] },
+    });
     return;
   }
 

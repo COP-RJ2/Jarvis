@@ -286,6 +286,20 @@ module.exports = async (req, res) => {
   const soc = socDaSessaoOuErro(req, res);
   if (!soc) return;
 
+  // Dado de FATO do Conveyor (conveyor_pulso, a performance por hora real —
+  // diferente do de-para de esteiras acima, que já é multi-SoC via
+  // Postgres) é implicitamente RJ2 (sem coluna de SoC) — pra qualquer outro
+  // SoC, nem busca (melhor nada do que misturar dado de RJ2 — pedido do
+  // Roberto em 2026-09-24). Mesma forma "sem dado" já usada abaixo quando a
+  // aba vem vazia.
+  if (soc !== 'RJ2') {
+    res.status(200).json({
+      ok: true, data: null, rows: [], grupos: [], sppScuttle: null,
+      cobertura: { inicio: null, fim: null },
+    });
+    return;
+  }
+
   let rows;
   try {
     ({ rows } = await fetchTabByGid(SHEET.spreadsheetId, SHEET.gid));

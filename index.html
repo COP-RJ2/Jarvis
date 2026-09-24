@@ -5953,6 +5953,7 @@
           <div class="section-subtitle">Perda de capacidade — ASM e Conveyor (Esteira A/B/Termo) vs meta de labor_pulso</div>
         </div>
         <div class="section-dl-group">
+          <button class="spr-pipboy-btn" onclick="justOpenPipboy()"><i class="fas fa-satellite-dish"></i> COP Boy</button>
           <button class="dl-btn dl-btn-csv" onclick="loadJustificativas()"><i class="fas fa-rotate-right"></i> Atualizar</button>
         </div>
       </div>
@@ -6408,6 +6409,7 @@
           <div class="section-subtitle">Estrutura · Comunicação · Responsabilidades · Ferramentas · Reuniões · Equipe</div>
         </div>
         <div class="section-dl-group">
+          <button class="spr-pipboy-btn" onclick="matrizOpenPipboy()"><i class="fas fa-satellite-dish"></i> COP Boy</button>
           <div class="pdf-menu-wrap">
             <button class="dl-btn dl-btn-pdf" onclick="togglePdfMenu('matriz',event)"><i class="fas fa-file-pdf"></i> PDF <i class="fas fa-chevron-down" style="font-size:9px;margin-left:2px"></i></button>
             <div class="pdf-dropdown" id="pdf-menu-matriz">
@@ -6680,6 +6682,7 @@
           <div class="section-subtitle">SQL · Python · GitHub · Links · Documentação</div>
         </div>
         <div class="section-dl-group">
+          <button class="spr-pipboy-btn" onclick="dmapOpenPipboy()"><i class="fas fa-satellite-dish"></i> COP Boy</button>
           <div class="pdf-menu-wrap">
             <button class="dl-btn dl-btn-pdf" onclick="togglePdfMenu('mapadados',event)"><i class="fas fa-file-pdf"></i> PDF <i class="fas fa-chevron-down" style="font-size:9px;margin-left:2px"></i></button>
             <div class="pdf-dropdown" id="pdf-menu-mapadados">
@@ -6807,6 +6810,7 @@
           <div class="section-subtitle">Post-its por Responsável · Fila, Atrasado, Em Andamento, On Hold, Finalizado</div>
         </div>
         <div class="section-dl-group">
+          <button class="spr-pipboy-btn" onclick="kbOpenPipboy()"><i class="fas fa-satellite-dish"></i> COP Boy</button>
           <div class="pdf-menu-wrap">
             <button class="dl-btn dl-btn-pdf" onclick="togglePdfMenu('kanban',event)"><i class="fas fa-file-pdf"></i> PDF <i class="fas fa-chevron-down" style="font-size:9px;margin-left:2px"></i></button>
             <div class="pdf-dropdown" id="pdf-menu-kanban">
@@ -7035,6 +7039,7 @@
             <option value="SC1">SC1</option>
             <option value="SC2">SC2</option>
           </select>
+          <button class="spr-pipboy-btn" onclick="ctrlOpenPipboy()"><i class="fas fa-satellite-dish"></i> COP Boy</button>
           <button class="dl-btn dl-btn-csv" onclick="renderControle()"><i class="fas fa-rotate-right"></i> Atualizar</button>
         </div>
       </div>
@@ -7091,6 +7096,7 @@
           <h1>Packed on Time</h1>
         </div>
         <div class="title-row-right">
+          <button class="spr-pipboy-btn" onclick="potOpenPipboy()"><i class="fas fa-satellite-dish"></i> COP Boy</button>
           <div class="station" id="stationLine">Estação —</div>
         </div>
       </div>
@@ -9606,6 +9612,11 @@ function render() {
     return pb < pa ? b : a;
   });
 
+  // Stash pro COP Boy (potGenerateInsights) — render() já calculou tudo,
+  // só guarda o resultado num global pra não duplicar RECORDS/generalTotals
+  // fora do escopo da função (pedido do Roberto em 2026-09-24).
+  window.potLastStats = { total, on, notOn, pctOn, turnoWorst, daily: dailySeries(f) };
+
   document.getElementById('heroStats').innerHTML = `
     <div class="stat-tile is-good">
       <span class="stat-label">Packed on Time</span>
@@ -9897,6 +9908,23 @@ window.addEventListener('resize', () => {
 render();
 
 potListenersBound = true;
+}
+
+function potGenerateInsights(){
+  const s = window.potLastStats;
+  if(!s || !s.total) return [];
+  const insights = [];
+  insights.push({ icon:'fa-box-check', html:`<strong>${(s.pctOn*100).toFixed(1)}%</strong> Packed on Time no período (${s.on.toLocaleString('pt-BR')} de ${s.total.toLocaleString('pt-BR')} volumes avaliados).` });
+  if(s.turnoWorst && s.turnoWorst.total>0) insights.push({ icon:'fa-clock', html:`Turno ofensor: <strong>${pulsoEscHtml(s.turnoWorst.label)}</strong>, com ${(s.turnoWorst.on/s.turnoWorst.total*100).toFixed(1)}% Packed on Time.` });
+  const dias = (s.daily||[]).filter(d=>d.total>0);
+  if(dias.length>1){
+    const pior = dias.reduce((a,b)=> (b.on/b.total) < (a.on/a.total) ? b : a);
+    insights.push({ icon:'fa-calendar-day', html:`Dia com pior % Packed on Time: <strong>${pulsoEscHtml(pior.day)}</strong>, ${(pior.on/pior.total*100).toFixed(1)}%.` });
+  }
+  return insights;
+}
+function potOpenPipboy(){
+  pulsoOpenPipboyGeneric('Packed on Time', potGenerateInsights());
 }
 
 async function renderSection(section){
@@ -15576,6 +15604,23 @@ function renderMatriz(){
   buildComPlan();
 }
 
+// Matriz é uma página de governança/referência (org chart, RACI, reuniões,
+// pontos focais) editada manualmente, não um dashboard com dado ao vivo —
+// os insights aqui são contagens honestas do preenchimento atual, não
+// métricas operacionais (não tem isso pra tirar dessa tela).
+function matrizGenerateInsights(){
+  const insights = [];
+  insights.push({ icon:'fa-people-group', html:`<strong>${MEETINGS_DATA.length}</strong> reunião(ões) cadastrada(s) no guia de governança.` });
+
+  const focalPreenchidos = focalCards.filter(f => f.name).length;
+  insights.push({ icon:'fa-address-card', html:`<strong>${focalPreenchidos}</strong> de ${focalCards.length} ponto(s) focais com responsável definido.` });
+
+  return insights;
+}
+function matrizOpenPipboy(){
+  pulsoOpenPipboyGeneric('Matriz', matrizGenerateInsights());
+}
+
 function buildOrgGrid(containerId, rows){
   const grid = document.getElementById(containerId);
   if(!grid) return;
@@ -15860,6 +15905,30 @@ async function loadDataMap(){
     console.error('[datamap]', err);
     if(grid) grid.innerHTML = `<div class="switch-hint"><i class="fas fa-triangle-exclamation"></i> Erro ao carregar: ${pulsoEscHtml(err.message)}</div>`;
   }
+}
+
+const DATAMAP_TIPO_LABELS = { sql:'SQL', py:'Python', html:'HTML', link:'Link', sheet:'Planilha' };
+function dmapGenerateInsights(){
+  if(!DATAMAP_LOADED || !dataMapEntries.length) return [];
+  const insights = [];
+  const porTipo = {};
+  dataMapEntries.forEach(e => { porTipo[e.tipo] = (porTipo[e.tipo]||0)+1; });
+  const resumoTipos = Object.entries(porTipo).sort((a,b)=>b[1]-a[1])
+    .map(([tipo,qtd]) => `${qtd} ${DATAMAP_TIPO_LABELS[tipo]||tipo}`).join(', ');
+  insights.push({ icon:'fa-layer-group', html:`<strong>${dataMapEntries.length}</strong> entrada(s) cadastrada(s): ${pulsoEscHtml(resumoTipos)}.` });
+
+  const porResp = {};
+  dataMapEntries.forEach(e => { if(e.responsavel_email) porResp[e.responsavel_email] = (porResp[e.responsavel_email]||0)+1; });
+  const respTop = Object.entries(porResp).sort((a,b)=>b[1]-a[1])[0];
+  if(respTop) insights.push({ icon:'fa-user', html:`Responsável com mais entradas: <strong>${pulsoEscHtml(respTop[0])}</strong>, ${respTop[1]} cadastrada(s).` });
+
+  const maisRecente = dataMapEntries.filter(e=>e.criado_em).slice().sort((a,b)=> new Date(b.criado_em)-new Date(a.criado_em))[0];
+  if(maisRecente) insights.push({ icon:'fa-clock', html:`Entrada mais recente: <strong>${pulsoEscHtml(maisRecente.titulo)}</strong>, em ${new Date(maisRecente.criado_em).toLocaleDateString('pt-BR')}.` });
+
+  return insights;
+}
+function dmapOpenPipboy(){
+  pulsoOpenPipboyGeneric('Mapa de Dados', dmapGenerateInsights());
 }
 
 /* ================================================================
@@ -16998,6 +17067,24 @@ function kbRenderStats(){
     </div>`).join('');
 }
 
+function kbGenerateInsights(){
+  if(!KB_STATE.loaded) return [];
+  const s = kbCalcStats();
+  if(!KB_STATE.demandas.length) return [];
+  const insights = [];
+  insights.push({ icon:'fa-triangle-exclamation', html:`<strong>${s.atrasadas}</strong> demanda(s) atrasada(s), de ${KB_STATE.demandas.length} no total (${s.pendentes} em aberto).` });
+
+  const porDono = kbOwnerRowsRaw().filter(r => r.totalDemandas>0).sort((a,b)=>b.totalDemandas-a.totalDemandas)[0];
+  if(porDono) insights.push({ icon:'fa-user', html:`Dono com mais demandas: <strong>${pulsoEscHtml(porDono.nome)}</strong>, ${porDono.totalDemandas} demanda(s).` });
+
+  if(s.semDono>0) insights.push({ icon:'fa-user-slash', html:`<strong>${s.semDono}</strong> demanda(s) sem dono atribuído.` });
+
+  return insights;
+}
+function kbOpenPipboy(){
+  pulsoOpenPipboyGeneric('Kanban de Demandas', kbGenerateInsights());
+}
+
 // Score por Dono (pedido do Roberto em 2026-08-27) — mesmas fórmulas de
 // kbCalcStats(), só que filtradas por um único dono em vez do board inteiro.
 function kbCalcDonoScore(nome){
@@ -17710,6 +17797,7 @@ function ctrlFmtRelativo(iso){
   const classe = min <= 120 ? 'ok' : min <= 360 ? 'loading' : 'error';
   return { texto: texto + ' — ' + new Date(iso).toLocaleString('pt-BR'), classe };
 }
+let CTRL_LAST_DATA = null;
 async function renderControle(){
   setBadge('controle', 'loading');
   const soc = document.getElementById('ctrl-soc-select')?.value || '';
@@ -17719,11 +17807,13 @@ async function renderControle(){
     const r = await fetch('/api/controle' + (soc ? '?soc=' + encodeURIComponent(soc) : ''));
     const j = await r.json();
     if(!j.ok){
+      CTRL_LAST_DATA = null;
       setBadge('controle', 'error', j.erro || 'Erro');
       pipelineBody.innerHTML = `<tr><td colspan="4">${pulsoEscHtml(j.erro || 'Erro ao carregar')}</td></tr>`;
       ontimeBody.innerHTML = `<tr><td colspan="4">—</td></tr>`;
       return;
     }
+    CTRL_LAST_DATA = j;
     pipelineBody.innerHTML = j.pipeline.map(p => {
       if(p.erro) return `<tr><td>${p.tabela}</td><td colspan="3">${pulsoEscHtml(p.erro)}</td></tr>`;
       const { texto, classe } = ctrlFmtRelativo(p.ultima_atualizacao);
@@ -17739,6 +17829,36 @@ async function renderControle(){
     setBadge('controle', 'error', err.message);
     pipelineBody.innerHTML = `<tr><td colspan="4">Erro: ${pulsoEscHtml(err.message)}</td></tr>`;
   }
+}
+
+function ctrlGenerateInsights(){
+  if(!CTRL_LAST_DATA) return [];
+  const linhas = [
+    ...CTRL_LAST_DATA.pipeline.filter(p=>!p.erro).map(p=>({ nome:p.tabela, ...p })),
+    ...CTRL_LAST_DATA.ontime.filter(o=>!o.erro).map(o=>({ nome:o.fonte, ...o })),
+  ];
+  if(!linhas.length) return [];
+  const insights = [];
+
+  const semDado = linhas.filter(l => !l.ultima_atualizacao || !l.linhas);
+  if(semDado.length){
+    insights.push({ icon:'fa-triangle-exclamation', html:`<strong>${semDado.length}</strong> tabela(s)/fonte(s) sem nenhum dado: ${semDado.map(l=>pulsoEscHtml(l.nome)).join(', ')}.` });
+  }
+
+  const comData = linhas.filter(l => l.ultima_atualizacao);
+  if(comData.length){
+    const maisAtrasada = comData.reduce((a,b) => new Date(a.ultima_atualizacao) < new Date(b.ultima_atualizacao) ? a : b);
+    const { texto } = ctrlFmtRelativo(maisAtrasada.ultima_atualizacao);
+    insights.push({ icon:'fa-clock-rotate-left', html:`Atualização mais atrasada: <strong>${pulsoEscHtml(maisAtrasada.nome)}</strong>, ${texto}.` });
+  }
+
+  const emDia = linhas.filter(l => l.ultima_atualizacao && (Date.now()-new Date(l.ultima_atualizacao).getTime())/60000 <= 120).length;
+  insights.push({ icon:'fa-heart-pulse', html:`<strong>${emDia}</strong> de ${linhas.length} tabela(s)/fonte(s) em dia (atualizadas há até 2h)${CTRL_LAST_DATA.socFiltrado ? ', SoC '+pulsoEscHtml(CTRL_LAST_DATA.socFiltrado) : ''}.` });
+
+  return insights;
+}
+function ctrlOpenPipboy(){
+  pulsoOpenPipboyGeneric('Painel de Controle', ctrlGenerateInsights());
 }
 
 function renderSwitch(){
@@ -21522,6 +21642,24 @@ function justPopulateFiltros(){
   const deEl = document.getElementById('just-de-input'), ateEl = document.getElementById('just-ate-input');
   if(deEl && !JUST_STATE.de) deEl.value = JUST_DATA.intervalo.inicio;
   if(ateEl && !JUST_STATE.ate) ateEl.value = JUST_DATA.intervalo.fim;
+}
+
+function justGenerateInsights(){
+  if(!JUST_DATA) return [];
+  const insights = [];
+  const r = JUST_DATA.resumo;
+  insights.push({ icon:'fa-scale-balanced', html:`<strong>${r.pctJustificada===null?'—':r.pctJustificada+'%'}</strong> da perda de capacidade já justificada (${r.pendente.toLocaleString('pt-BR')} pendente de ${r.perdaTotal.toLocaleString('pt-BR')}).` });
+
+  const motivoTop = (JUST_DATA.porJustificativa||[]).slice().sort((a,b)=>b.perda-a.perda)[0];
+  if(motivoTop) insights.push({ icon:'fa-clipboard-list', html:`Motivo mais recorrente: <strong>${pulsoEscHtml(motivoTop.motivo)}</strong>, ${motivoTop.perda.toLocaleString('pt-BR')} de perda (${motivoTop.pctTotal}% do total)${motivoTop.canalMaisImpactado ? ', mais forte em '+pulsoEscHtml(motivoTop.canalMaisImpactado) : ''}.` });
+
+  const aderenciaPior = (JUST_DATA.aderenciaAreaTurno||[]).filter(a=>a.pendencias>0).slice().sort((a,b)=>b.pendencias-a.pendencias)[0];
+  if(aderenciaPior) insights.push({ icon:'fa-user-clock', html:`Maior pendência de preenchimento: <strong>${pulsoEscHtml(aderenciaPior.area)}</strong>${aderenciaPior.turno ? ' — '+pulsoEscHtml(aderenciaPior.turno) : ''}, ${aderenciaPior.pendencias.toLocaleString('pt-BR')} justificativa(s) em aberto.` });
+
+  return insights;
+}
+function justOpenPipboy(){
+  pulsoOpenPipboyGeneric('Justificativas', justGenerateInsights());
 }
 
 function justSetFiltro(campo, valor){

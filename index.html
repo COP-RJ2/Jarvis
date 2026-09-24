@@ -16493,12 +16493,24 @@ function ruasBatchBaixarModelo(){
 // Parser simples de CSV (;  — mesmo delimitador que pulsoDownloadCsv usa,
 // compatível com Excel PT-BR) — sem lib nova, arquivo é sempre pequeno
 // (RUAS_BATCH_MAX = 500 linhas no backend).
+// Detecta ; ou , como delimitador (pedido do Roberto em 2026-09-24 — o
+// modelo baixável usa ; (padrão Excel PT-BR/pulsoDownloadCsv), mas CSVs
+// exportados de outras fontes costumam vir com , e o usuário tinha que
+// editar o arquivo na mão antes de subir). Conta ocorrências na 1ª linha;
+// quem tiver mais, vence — ; como padrão em empate.
+function pulsoDetectarDelimitadorCsv(primeiraLinha){
+  const nVirgula = (primeiraLinha.match(/,/g) || []).length;
+  const nPontoVirgula = (primeiraLinha.match(/;/g) || []).length;
+  return nVirgula > nPontoVirgula ? ',' : ';';
+}
+
 function ruasBatchParseCsv(texto){
   const linhas = texto.replace(/^﻿/, '').split(/\r?\n/).filter(l => l.trim() !== '');
   if (!linhas.length) return { header: [], linhas: [] };
-  const header = linhas[0].split(';').map(h => h.replace(/"/g, '').trim().toLowerCase());
+  const delim = pulsoDetectarDelimitadorCsv(linhas[0]);
+  const header = linhas[0].split(delim).map(h => h.replace(/"/g, '').trim().toLowerCase());
   const dados = linhas.slice(1).map(l => {
-    const vals = l.split(';').map(v => v.replace(/^"|"$/g, '').trim());
+    const vals = l.split(delim).map(v => v.replace(/^"|"$/g, '').trim());
     const obj = {};
     header.forEach((h, i) => { obj[h] = vals[i] !== undefined ? vals[i] : ''; });
     return obj;
@@ -16759,9 +16771,10 @@ function esteirasBatchBaixarModelo(){
 function esteirasBatchParseCsv(texto){
   const linhas = texto.replace(/^﻿/, '').split(/\r?\n/).filter(l => l.trim() !== '');
   if (!linhas.length) return { header: [], linhas: [] };
-  const header = linhas[0].split(';').map(h => h.replace(/"/g, '').trim().toLowerCase());
+  const delim = pulsoDetectarDelimitadorCsv(linhas[0]);
+  const header = linhas[0].split(delim).map(h => h.replace(/"/g, '').trim().toLowerCase());
   const dados = linhas.slice(1).map(l => {
-    const vals = l.split(';').map(v => v.replace(/^"|"$/g, '').trim());
+    const vals = l.split(delim).map(v => v.replace(/^"|"$/g, '').trim());
     const obj = {};
     header.forEach((h, i) => { obj[h] = vals[i] !== undefined ? vals[i] : ''; });
     return obj;

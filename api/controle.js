@@ -50,25 +50,18 @@ async function statusPipeline(socCurto) {
   return resultados;
 }
 
-// ontime_dados (api/ingest.js) não tem coluna de SoC — é fonte/chave/data
-// genérico, quem decide o formato da chave é o script Python de origem.
-// Sem inspecionar dado real não dá pra filtrar por SoC com segurança aqui,
-// então essa parte do painel continua sempre agregada (sinalizado no front).
-async function statusOntime() {
+// ontime_dados (api/ingest.js) ganhou coluna soc em 2026-09-24 (pedido do
+// Roberto — os jobs Pulse já são nomeados por SoC, "Pulse RJ6" etc., então
+// o /api/ingest passou a aceitar soc por chamada). Default 'RJ2' pra scripts
+// antigos que ainda não mandam soc — não quebra o que já estava rodando.
+async function statusOntime(socCurto) {
   try {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS ontime_dados (
-        fonte text NOT NULL,
-        chave text NOT NULL,
-        data jsonb NOT NULL,
-        atualizado_em timestamptz NOT NULL DEFAULT now(),
-        PRIMARY KEY (fonte, chave)
-      );
-    `);
-    const { rows } = await pool.query(`
-      SELECT fonte, max(atualizado_em) AS ultima_atualizacao, count(*) AS linhas
-      FROM ontime_dados GROUP BY fonte ORDER BY fonte;
-    `);
+    const sql = socCurto
+      ? `SELECT fonte, max(atualizado_em) AS ultima_atualizacao, count(*) AS linhas
+         FROM ontime_dados WHERE soc = $1 GROUP BY fonte ORDER BY fonte;`
+      : `SELECT fonte, max(atualizado_em) AS ultima_atualizacao, count(*) AS linhas
+         FROM ontime_dados GROUP BY fonte ORDER BY fonte;`;
+    const { rows } = await pool.query(sql, socCurto ? [socCurto] : []);
     return rows.map(r => ({ fonte: r.fonte, ultima_atualizacao: r.ultima_atualizacao, linhas: Number(r.linhas) }));
   } catch (err) {
     return [{ erro: err.message }];
@@ -87,7 +80,7 @@ module.exports = async (req, res) => {
     return;
   }
   try {
-    const [pipeline, ontime] = await Promise.all([statusPipeline(socCurto), statusOntime()]);
+    const [pipeline, ontime] = await Promise.all([statusPipeline(socCurto), statusOntime(socCurto)]);
     res.setHeader('Cache-Control', 'no-store');
     res.status(200).json({
       ok: true, pipeline, ontime,

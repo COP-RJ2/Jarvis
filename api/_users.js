@@ -40,6 +40,23 @@ const SOCS = [
 ];
 const SOCS_VALIDOS = new Set(SOCS.map(s => s.soc));
 
+// Normaliza um código de SoC vindo de QUALQUER lugar que não seja a própria
+// sessão do JARVIS (pedido do Roberto em 2026-09-24: "SOC-SC1" e "SC1" são
+// a mesma coisa, o prefixo "SOC-" é só a convenção usada por algumas
+// integrações externas — ex. as tabelas export_* do pipeline Presto/Spark
+// e os jobs Pulse por SoC). Única função canônica pra isso — antes cada
+// arquivo resolvia essa dualidade do seu próprio jeito (ver SOCS_VALIDOS
+// short->long em api/controle.js, criado antes desta função existir, e o
+// normalizarSoc que tinha virado uma cópia local em api/ingest.js), o que é
+// exatamente o tipo de duplicação que já causou bug real nesta base (linhas
+// espúrias "SOC-RJ6"/"SOC-SC1" na tabela `socs`, limpas em 2026-09-22).
+// Aceita minúsculo/maiúsculo e com ou sem o prefixo; devolve null se não
+// bater com nenhum SoC conhecido.
+function normalizarSoc(v) {
+  const s = String(v || '').trim().toUpperCase().replace(/^SOC-/, '');
+  return SOCS_VALIDOS.has(s) ? s : null;
+}
+
 // Resolve o SoC da sessão de forma explícita (pedido do Roberto em
 // 2026-09-22, achado na varredura multi-SoC) — até aqui, todo endpoint que
 // precisava do SoC usava `(req.session.user && req.session.user.soc) ||
@@ -106,4 +123,4 @@ function usuarioDoEmail(email) {
   };
 }
 
-module.exports = { emailPermitido, nomeDoEmail, usuarioDoEmail, buscarWorkLocation, DOMINIOS_PERMITIDOS, SOCS, SOCS_VALIDOS, socDaSessaoOuErro };
+module.exports = { emailPermitido, nomeDoEmail, usuarioDoEmail, buscarWorkLocation, DOMINIOS_PERMITIDOS, SOCS, SOCS_VALIDOS, socDaSessaoOuErro, normalizarSoc };

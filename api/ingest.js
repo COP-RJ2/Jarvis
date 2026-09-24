@@ -35,7 +35,7 @@
  * que ainda não mandam soc continuam gravando como sempre, sem quebrar).
  */
 const { pool } = require('../db');
-const { SOCS_VALIDOS } = require('./_users');
+const { normalizarSoc } = require('./_users');
 
 async function garantirTabela() {
   await pool.query(`
@@ -48,11 +48,6 @@ async function garantirTabela() {
       PRIMARY KEY (fonte, soc, chave)
     );
   `);
-}
-
-function normalizarSoc(v) {
-  const s = String(v || 'RJ2').trim().toUpperCase().replace(/^SOC-/, '');
-  return SOCS_VALIDOS.has(s) ? s : null;
 }
 
 function autenticado(req) {
@@ -123,7 +118,10 @@ module.exports = async (req, res) => {
   try {
     const fonte = String(req.query.fonte || '').trim();
     if (!fonte) { res.status(400).json({ ok: false, erro: 'Informe ?fonte=nome-da-origem' }); return; }
-    const soc = normalizarSoc(req.query.soc);
+    // Omitido = 'RJ2' (scripts antigos que ainda não mandam soc) — esse
+    // default é uma decisão específica do ingest, não da normalização em si
+    // (normalizarSoc, em api/_users.js, não assume default nenhum).
+    const soc = normalizarSoc(req.query.soc || 'RJ2');
     if (!soc) { res.status(400).json({ ok: false, erro: 'SoC inválido em ?soc=' }); return; }
 
     if (req.method === 'POST') { await handlePost(req, res, fonte, soc); return; }

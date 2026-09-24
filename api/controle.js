@@ -16,6 +16,7 @@
  * no endpoint e ver o mesmo painel.
  */
 const { pool } = require('../db');
+const { normalizarSoc } = require('./_users');
 
 const EMAIL_PERMITIDO = 'roberto.barboza@shopee.com';
 
@@ -74,8 +75,11 @@ module.exports = async (req, res) => {
     res.status(403).json({ ok: false, erro: 'Acesso restrito.' });
     return;
   }
-  const socCurto = String(req.query.soc || '').toUpperCase();
-  if (socCurto && !SOCS_VALIDOS[socCurto]) {
+  // normalizarSoc (api/_users.js) aceita "RJ2" ou "SOC-RJ2" — o filtro do
+  // painel sempre trabalhou com o formato curto, mas aceitar o longo aqui
+  // também evita surpresa se alguém colar um soc_id copiado do pipeline.
+  const socCurto = req.query.soc ? normalizarSoc(req.query.soc) : '';
+  if (req.query.soc && !socCurto) {
     res.status(400).json({ ok: false, erro: 'SoC inválido.' });
     return;
   }

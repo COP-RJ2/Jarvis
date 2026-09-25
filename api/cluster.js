@@ -40,9 +40,10 @@
  *                  operator=spx@shopee.com + to pack=Scuttle -> Transbordo
  *                  resto vazio
  *
- * Resíduo operacional: TO com quantity < 15 E aging > 15 dias (360h) some
- * de TUDO (cards/grade/tabela) — filtrado logo depois do de-para, antes de
- * qualquer agregação.
+ * Resíduo operacional: TO com aging > 15 dias (360h) some de TUDO
+ * (cards/grade/tabela), independente da quantidade — filtrado logo depois
+ * do de-para, antes de qualquer agregação (regra simplificada em
+ * 2026-09-25, ver comentário perto do filtro).
  *
  * `stage`=ENDEREÇADO = TO já ocupa 1 posição física na `rua` indicada;
  * `stage`=PENDENTE (`rua`="Pendente") = TO ainda sem rua física.
@@ -813,13 +814,14 @@ module.exports = async (req, res) => {
     };
   });
 
-  // Resíduo operacional (confirmado com o Roberto em 2026-08-04): quantidade
-  // < 15 E aging > 15 dias (360h) somadas — não aparece em NADA da página
-  // (cards, grade, tabela), por isso o filtro roda antes de qualquer
-  // agregação, não só na tabela final.
-  const RESIDUO_QTD_MAX = 15;
+  // Resíduo operacional: TO com mais de 15 dias (360h) de aging não aparece
+  // em NADA da página (cards, grade, tabela) — pedido do Roberto em
+  // 2026-09-25, simplificando a regra antiga (que só valia com quantidade
+  // < 15 também) depois da migração pro Postgres-ontime trazer TOs bem mais
+  // antigos que a planilha nunca trouxe (ex.: TO de 2024 com ~2 anos de
+  // aging). Filtro roda antes de qualquer agregação, não só na tabela final.
   const RESIDUO_AGING_HORAS_MIN = 15 * 24;
-  const comData = comDataBruta.filter(r => !(toNum(r.quantity) < RESIDUO_QTD_MAX && r.aging > RESIDUO_AGING_HORAS_MIN));
+  const comData = comDataBruta.filter(r => r.aging <= RESIDUO_AGING_HORAS_MIN);
 
   // Opções de filtro sempre vêm da base inteira (não da já filtrada), senão
   // as opções somem conforme o usuário seleciona — padrão igual SPR/Leftover.

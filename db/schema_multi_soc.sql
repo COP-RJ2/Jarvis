@@ -72,6 +72,23 @@ CREATE TABLE IF NOT EXISTS de_para_ruas (
   PRIMARY KEY (soc, staging_area_id)
 );
 
+-- Classificação manual de doca (pedido do Roberto em 2026-09-25) — a
+-- tabela `dock` do Postgres-ontime (banco separado, alimentado por outro
+-- dev, dado ao vivo de ocupação física de doca) não tem campo confiável
+-- pra separar Interna/Externa/Inbound LH/Inbound FM/Outbound LH/Outbound
+-- SoC (dock_arrival_type é livre/inconsistente: "Outbound", "FM Inbound",
+-- "LH", "8, LH"...), então vira cadastro manual, mesmo padrão de
+-- de_para_ruas/de_para_esteiras. Cruzado com `dock` (Postgres-ontime) pelo
+-- código físico da doca (dock_no) pra montar o card "docas ocupadas agora
+-- por categoria" em api/inbound-fm.js.
+CREATE TABLE IF NOT EXISTS de_para_docas (
+  soc            text NOT NULL REFERENCES socs(soc),
+  dock_no        text NOT NULL,              -- código físico, ex: "D01513"
+  categoria      text NOT NULL,               -- Interna|Externa|Inbound LH|Inbound FM|Outbound LH|Outbound SoC
+  atualizado_em  timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (soc, dock_no)
+);
+
 -- Substitui a aba `bat` (BAT_SHEET) usada pelo Labor Plan — premissas de
 -- mão de obra por processo/macro (o "workstation" mencionado pelo Roberto:
 -- por_ws = quantidade por posto de trabalho). CONFIRMADO no código: NÃO é

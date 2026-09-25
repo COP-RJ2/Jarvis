@@ -5748,9 +5748,14 @@
             <select class="filter-select" id="fm-turno-input" onchange="fmSetFilter('turno',this.value)" style="height:34px"><option value="">Todos os turnos</option></select>
             <select class="filter-select" id="fm-agencia-input" onchange="fmSetFilter('agencia',this.value)" style="height:34px"><option value="">Todas as agências</option></select>
           </div>
+          <button class="dl-btn dl-btn-csv" onclick="docasOpenModal()"><i class="fas fa-warehouse"></i> Configurar Docas</button>
         </div>
         <div class="pulso-coverage" id="fm-coverage"></div>
         <div id="fm-kpis" style="margin-top:12px"></div>
+        <div class="table-card full" style="margin-top:16px">
+          <div class="table-toolbar"><div class="table-toolbar-title">Docas ocupadas agora, por categoria</div></div>
+          <div id="fm-docas-categoria-kpis"></div>
+        </div>
         <div class="chart-card full" style="margin-top:16px">
           <div class="table-toolbar" style="margin-bottom:0">
             <div class="chart-title" id="fm-chart-title">Chegadas por hora</div>
@@ -7508,6 +7513,86 @@
         <div class="modal-footer" style="padding:14px 0 0">
           <button type="button" class="btn btn-outline" onclick="esteirasBatchCancelar()">Cancelar</button>
           <button type="button" class="btn btn-primary" id="esteiras-batch-confirmar-btn" onclick="esteirasBatchConfirmar()"><i class="fas fa-upload"></i> Confirmar importação</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal "Configurar Docas" (Inbound FM) — pedido do Roberto em 2026-09-25:
+     mesmo padrão do ruas-modal-overlay/esteiras-modal-overlay acima, cada SoC
+     autogerencia seu de-para de doca->categoria (Interna/Externa/Inbound LH/
+     Inbound FM/Outbound LH/Outbound SoC) direto pela tela. -->
+<div class="modal-overlay" id="docas-modal-overlay" onclick="if(event.target===this) docasCloseModal()">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="docas-modal-label" style="max-width:680px">
+    <div class="modal-header">
+      <span class="modal-title" id="docas-modal-label"><i class="fas fa-warehouse" style="color:var(--accent-ll);margin-right:8px"></i>Configurar Docas</span>
+      <button class="modal-close" onclick="docasCloseModal()"><i class="fas fa-xmark"></i></button>
+    </div>
+    <div style="padding:0 20px 4px;font-size:12px;color:var(--text-muted)">De-para de docas do seu SoC: Doca (número/código físico) e Categoria (usados pra separar "Docas ocupadas agora" por tipo). Doca não cadastrada conta como "Não classificada".</div>
+
+    <div style="display:flex;gap:8px;padding:10px 20px 0">
+      <button type="button" class="btn btn-outline" id="docas-tab-btn-individual" onclick="docasTrocarAba('individual')" style="flex:1">Individual</button>
+      <button type="button" class="btn btn-outline" id="docas-tab-btn-batch" onclick="docasTrocarAba('batch')" style="flex:1"><i class="fas fa-file-csv"></i> Importar em massa</button>
+    </div>
+
+    <div id="docas-tab-individual">
+      <form id="docas-form" onsubmit="docasSubmit(event)" style="padding:12px 20px 0">
+        <input type="hidden" id="docas-editing-id"/>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Doca *</label>
+            <input type="text" class="form-input" id="docas-f-dock-no" required placeholder="Ex.: D01"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Categoria *</label>
+            <select class="form-input" id="docas-f-categoria" required>
+              <option value="">Selecione…</option>
+              <option value="Interna">Interna</option>
+              <option value="Externa">Externa</option>
+              <option value="Inbound LH">Inbound LH</option>
+              <option value="Inbound FM">Inbound FM</option>
+              <option value="Outbound LH">Outbound LH</option>
+              <option value="Outbound SoC">Outbound SoC</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer" style="padding:4px 0 16px">
+          <button type="button" class="btn btn-outline" id="docas-cancel-edit-btn" onclick="docasCancelEdit()" style="display:none">Cancelar edição</button>
+          <button type="submit" class="btn btn-primary" id="docas-submit-btn"><i class="fas fa-plus"></i> Adicionar Doca</button>
+        </div>
+      </form>
+      <div style="padding:0 20px 20px;max-height:50vh;overflow:auto">
+        <table class="clst-table" style="width:100%;min-width:0">
+          <thead><tr><th>Doca</th><th>Categoria</th><th style="position:sticky;right:0">Ações</th></tr></thead>
+          <tbody id="docas-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="docas-tab-batch" style="display:none;padding:12px 20px 20px">
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">
+        Baixe o modelo, preencha uma linha por doca e suba o arquivo de volta. Linhas com Doca já cadastrada atualizam a categoria existente; as demais são criadas. Só importa se o arquivo inteiro estiver dentro do modelo — se alguma linha tiver erro (inclusive categoria fora da lista), nada é importado.
+      </div>
+      <button type="button" class="btn btn-outline" onclick="docasBatchBaixarModelo()" style="margin-bottom:14px"><i class="fas fa-download"></i> Baixar modelo CSV</button>
+
+      <div class="form-group">
+        <label class="form-label">Arquivo CSV</label>
+        <input type="file" class="form-input" id="docas-batch-file" accept=".csv" onchange="docasBatchArquivoSelecionado(this)"/>
+      </div>
+
+      <div id="docas-batch-preview" style="display:none;margin-top:12px">
+        <div id="docas-batch-preview-resumo" style="font-size:12px;margin-bottom:8px"></div>
+        <div style="max-height:30vh;overflow:auto">
+          <table class="clst-table" style="width:100%">
+            <thead><tr><th>#</th><th>Doca</th><th>Categoria</th></tr></thead>
+            <tbody id="docas-batch-preview-body"></tbody>
+          </table>
+        </div>
+        <div id="docas-batch-erros" style="margin-top:10px;font-size:12px;color:var(--red)"></div>
+        <div class="modal-footer" style="padding:14px 0 0">
+          <button type="button" class="btn btn-outline" onclick="docasBatchCancelar()">Cancelar</button>
+          <button type="button" class="btn btn-primary" id="docas-batch-confirmar-btn" onclick="docasBatchConfirmar()"><i class="fas fa-upload"></i> Confirmar importação</button>
         </div>
       </div>
     </div>
@@ -13149,6 +13234,24 @@ function fmRenderAll(){
   fmRenderChart();
   fmRenderTurnoOverall();
   fmRenderTable();
+  fmRenderDocasCategoria();
+}
+
+// "Docas ocupadas agora, por categoria" (pedido do Roberto em 2026-09-25) —
+// snapshot ao vivo (FM_DATA.docasOcupadasPorCategoria, montado no backend a
+// partir do de-para de_para_docas), não passa pelos filtros de turno/agência
+// (mesmo espírito de docasOcupadasAgora: sempre "agora"). Reaproveita
+// buildKPIs, mesmo card já usado pro resto da página.
+function fmRenderDocasCategoria(){
+  if(!FM_DATA) return;
+  const porCategoria = FM_DATA.docasOcupadasPorCategoria || {};
+  buildKPIs('fm-docas-categoria-kpis', Object.entries(porCategoria).map(([categoria, n]) => ({
+    label: categoria,
+    value: String(n),
+    delta: '', trend: 'up',
+    type: categoria === 'Não classificada' && n ? 'warning' : '',
+    icon: 'fa-warehouse',
+  })));
 }
 
 function fmRenderKpis(){
@@ -16844,6 +16947,270 @@ async function esteirasBatchConfirmar(){
     esteirasTrocarAba('individual');
     esteirasRenderTable();
     showToast(`✓ ${j.importadas} esteira(s) importada(s)!`);
+  } catch(err){
+    showToast('Erro: '+err.message, true);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+/* ================================================================
+   CONFIGURAR DOCAS (Inbound FM) — CRUD do de-para doca->categoria por SoC,
+   pedido do Roberto em 2026-09-25 (mesmo padrão de CONFIGURAR RUAS/
+   CONFIGURAR ESTEIRAS acima). Persistido via /api/inbound-fm?docas=1 (ver
+   handleDocas em api/inbound-fm.js). Doca vira readonly durante edição
+   porque é chave primária (soc, dock_no). Categoria é lista fixa (select),
+   não texto livre.
+================================================================ */
+let docasCache = [];
+const DOCAS_CATEGORIAS = ['Interna', 'Externa', 'Inbound LH', 'Inbound FM', 'Outbound LH', 'Outbound SoC'];
+
+function docasRenderTable(){
+  const tbody = document.getElementById('docas-table-body');
+  if(!tbody) return;
+  if(!docasCache.length){
+    tbody.innerHTML = '<tr><td colspan="3" class="switch-hint">Nenhuma doca cadastrada ainda pro seu SoC. Use o formulário acima pra adicionar.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = docasCache.map(r => `
+    <tr>
+      <td>${pulsoEscHtml(r.dock_no)}</td>
+      <td>${pulsoEscHtml(r.categoria)}</td>
+      <td style="white-space:nowrap;position:sticky;right:0;background:var(--surface)">
+        <button type="button" class="data-card-action-btn" onclick="docasEdit('${pulsoEscHtml(r.dock_no)}')" title="Editar"><i class="fas fa-pen"></i></button>
+        <button type="button" class="data-card-action-btn" onclick="docasDelete('${pulsoEscHtml(r.dock_no)}')" title="Excluir"><i class="fas fa-trash"></i></button>
+      </td>
+    </tr>`).join('');
+}
+
+function docasTrocarAba(aba){
+  const individual = aba === 'individual';
+  document.getElementById('docas-tab-individual').style.display = individual ? '' : 'none';
+  document.getElementById('docas-tab-batch').style.display = individual ? 'none' : '';
+  document.getElementById('docas-tab-btn-individual').className = 'btn ' + (individual ? 'btn-primary' : 'btn-outline');
+  document.getElementById('docas-tab-btn-batch').className = 'btn ' + (individual ? 'btn-outline' : 'btn-primary');
+  if (individual) docasBatchCancelar();
+}
+
+async function docasOpenModal(){
+  document.getElementById('docas-modal-overlay').classList.add('open');
+  docasCancelEdit();
+  docasTrocarAba('individual');
+  const tbody = document.getElementById('docas-table-body');
+  if(tbody) tbody.innerHTML = '<tr><td colspan="3" class="switch-hint">Carregando…</td></tr>';
+  try {
+    const r = await fetch('/api/inbound-fm?docas=1');
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.erro || 'falha ao carregar docas');
+    docasCache = j.docas;
+    docasRenderTable();
+  } catch(err){
+    if(tbody) tbody.innerHTML = `<tr><td colspan="3" class="switch-hint">Erro: ${pulsoEscHtml(err.message)}</td></tr>`;
+  }
+}
+function docasCloseModal(){
+  document.getElementById('docas-modal-overlay').classList.remove('open');
+  // Recarrega o Inbound FM pra refletir eventuais mudanças sem F5.
+  loadFm();
+}
+
+function docasEdit(dockNo){
+  const r = docasCache.find(x => x.dock_no === dockNo);
+  if(!r) return;
+  document.getElementById('docas-editing-id').value = r.dock_no;
+  document.getElementById('docas-f-dock-no').value = r.dock_no;
+  document.getElementById('docas-f-dock-no').readOnly = true;
+  document.getElementById('docas-f-categoria').value = r.categoria;
+  document.getElementById('docas-submit-btn').innerHTML = '<i class="fas fa-check"></i> Salvar Alterações';
+  document.getElementById('docas-cancel-edit-btn').style.display = '';
+  document.getElementById('docas-f-categoria').focus();
+}
+function docasCancelEdit(){
+  document.getElementById('docas-form').reset();
+  document.getElementById('docas-editing-id').value = '';
+  document.getElementById('docas-f-dock-no').readOnly = false;
+  document.getElementById('docas-submit-btn').innerHTML = '<i class="fas fa-plus"></i> Adicionar Doca';
+  document.getElementById('docas-cancel-edit-btn').style.display = 'none';
+}
+
+async function docasSubmit(ev){
+  ev.preventDefault();
+  const editingId = document.getElementById('docas-editing-id').value;
+  const doca = {
+    dock_no: document.getElementById('docas-f-dock-no').value.trim(),
+    categoria: document.getElementById('docas-f-categoria').value.trim(),
+  };
+  const btn = document.getElementById('docas-submit-btn');
+  if(btn) btn.disabled = true;
+  try {
+    const r = await fetch('/api/inbound-fm?docas=1', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ action: editingId ? 'update' : 'create', doca }),
+    });
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.erro || 'falha ao salvar');
+    docasCache = j.docas;
+    docasRenderTable();
+    docasCancelEdit();
+    showToast(editingId ? '✓ Doca atualizada!' : '✓ Doca adicionada!');
+  } catch(err){
+    showToast('Erro: '+err.message, true);
+  } finally {
+    if(btn) btn.disabled = false;
+  }
+}
+
+async function docasDelete(dockNo){
+  const r = docasCache.find(x => x.dock_no === dockNo);
+  if(!r) return;
+  if(!confirm(`Excluir a doca "${r.dock_no}" (categoria: ${r.categoria})? Essa ação não pode ser desfeita.`)) return;
+  try {
+    const resp = await fetch('/api/inbound-fm?docas=1', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ action:'delete', doca:{ dock_no: dockNo } }),
+    });
+    const j = await resp.json();
+    if(!j.ok) throw new Error(j.erro || 'falha ao excluir');
+    docasCache = j.docas;
+    docasRenderTable();
+    if(document.getElementById('docas-editing-id').value === dockNo) docasCancelEdit();
+    showToast('✓ Doca excluída.');
+  } catch(err){
+    showToast('Erro: '+err.message, true);
+  }
+}
+
+// ── Importar em massa (mesmo padrão de ruasBatch*/esteirasBatch*) ──────────
+const DOCAS_BATCH_HEADER = ['dock_no', 'categoria'];
+let docasBatchLinhas = null;
+
+function docasBatchBaixarModelo(){
+  pulsoDownloadCsv('modelo_docas.csv', DOCAS_BATCH_HEADER, [
+    ['D01', 'Inbound FM'],
+  ]);
+}
+
+function docasBatchParseCsv(texto){
+  const linhas = texto.replace(/^﻿/, '').split(/\r?\n/).filter(l => l.trim() !== '');
+  if (!linhas.length) return { header: [], linhas: [] };
+  const delim = pulsoDetectarDelimitadorCsv(linhas[0]);
+  const header = linhas[0].split(delim).map(h => h.replace(/"/g, '').trim().toLowerCase());
+  const dados = linhas.slice(1).map(l => {
+    const vals = l.split(delim).map(v => v.replace(/^"|"$/g, '').trim());
+    const obj = {};
+    header.forEach((h, i) => { obj[h] = vals[i] !== undefined ? vals[i] : ''; });
+    return obj;
+  });
+  return { header, linhas: dados };
+}
+
+function docasBatchValidarLinha(linha){
+  const dock_no = String(linha.dock_no || '').trim();
+  const categoria = String(linha.categoria || '').trim();
+  const faltando = [];
+  if (!dock_no) faltando.push('Doca');
+  if (!categoria) faltando.push('Categoria');
+  else if (!DOCAS_CATEGORIAS.includes(categoria)) return { ok: false, erro: `Categoria "${categoria}" inválida — use uma de: ${DOCAS_CATEGORIAS.join(', ')}` };
+  if (faltando.length) return { ok: false, erro: `Campo(s) inválido(s): ${faltando.join(', ')}` };
+  return { ok: true, valores: { dock_no, categoria } };
+}
+
+function docasBatchArquivoSelecionado(input){
+  const file = input.files && input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => docasBatchProcessarTexto(String(reader.result || ''));
+  reader.onerror = () => showToast('Erro ao ler o arquivo.', true);
+  reader.readAsText(file, 'utf-8');
+}
+
+function docasBatchProcessarTexto(texto){
+  const { header, linhas } = docasBatchParseCsv(texto);
+  const preview = document.getElementById('docas-batch-preview');
+  const resumo = document.getElementById('docas-batch-preview-resumo');
+  const errosEl = document.getElementById('docas-batch-erros');
+  const tbody = document.getElementById('docas-batch-preview-body');
+  const confirmarBtn = document.getElementById('docas-batch-confirmar-btn');
+  preview.style.display = '';
+
+  const headerEsperado = DOCAS_BATCH_HEADER.join(';');
+  if (header.join(';') !== headerEsperado) {
+    resumo.textContent = '';
+    tbody.innerHTML = '';
+    errosEl.textContent = `Cabeçalho do arquivo não bate com o modelo esperado. Esperado: "${headerEsperado}" — encontrado: "${header.join(';')}". Baixe o modelo de novo e não altere a primeira linha.`;
+    confirmarBtn.disabled = true;
+    docasBatchLinhas = null;
+    return;
+  }
+  if (!linhas.length) {
+    resumo.textContent = '';
+    tbody.innerHTML = '';
+    errosEl.textContent = 'Arquivo sem nenhuma linha de dado (só o cabeçalho).';
+    confirmarBtn.disabled = true;
+    docasBatchLinhas = null;
+    return;
+  }
+
+  const erros = [];
+  const vistos = new Map();
+  const validas = [];
+  linhas.forEach((linha, i) => {
+    const n = i + 1;
+    const v = docasBatchValidarLinha(linha);
+    if (!v.ok) { erros.push(`Linha ${n}: ${v.erro}`); return; }
+    const chave = v.valores.dock_no.toLowerCase();
+    if (vistos.has(chave)) { erros.push(`Linha ${n}: Doca "${v.valores.dock_no}" duplicada (já aparece na linha ${vistos.get(chave)}).`); return; }
+    vistos.set(chave, n);
+    validas.push(v.valores);
+  });
+
+  tbody.innerHTML = linhas.map((linha, i) => {
+    const v = docasBatchValidarLinha(linha);
+    const cor = v.ok ? '' : 'color:var(--red)';
+    return `<tr style="${cor}"><td>${i+1}</td><td>${pulsoEscHtml(linha.dock_no||'')}</td><td>${pulsoEscHtml(linha.categoria||'')}</td></tr>`;
+  }).join('');
+
+  if (erros.length) {
+    resumo.textContent = `${linhas.length} linha(s) no arquivo, ${erros.length} com erro.`;
+    errosEl.innerHTML = 'Corrija e suba de novo — nenhuma linha foi importada:<br>' + erros.map(pulsoEscHtml).join('<br>');
+    confirmarBtn.disabled = true;
+    docasBatchLinhas = null;
+  } else {
+    resumo.textContent = `${validas.length} linha(s) prontas pra importar.`;
+    errosEl.textContent = '';
+    confirmarBtn.disabled = false;
+    docasBatchLinhas = validas;
+  }
+}
+
+function docasBatchCancelar(){
+  docasBatchLinhas = null;
+  const fileInput = document.getElementById('docas-batch-file');
+  if (fileInput) fileInput.value = '';
+  const preview = document.getElementById('docas-batch-preview');
+  if (preview) preview.style.display = 'none';
+}
+
+async function docasBatchConfirmar(){
+  if (!docasBatchLinhas || !docasBatchLinhas.length) return;
+  const btn = document.getElementById('docas-batch-confirmar-btn');
+  if (btn) btn.disabled = true;
+  try {
+    const r = await fetch('/api/inbound-fm?docas=1', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ action: 'batch', docas: docasBatchLinhas }),
+    });
+    const j = await r.json();
+    if (!j.ok) {
+      const detalhe = Array.isArray(j.erros) && j.erros.length ? '<br>' + j.erros.map(pulsoEscHtml).join('<br>') : '';
+      document.getElementById('docas-batch-erros').innerHTML = pulsoEscHtml(j.erro || 'falha ao importar') + detalhe;
+      return;
+    }
+    docasCache = j.docas;
+    docasBatchCancelar();
+    docasTrocarAba('individual');
+    docasRenderTable();
+    showToast(`✓ ${j.importadas} doca(s) importada(s)!`);
   } catch(err){
     showToast('Erro: '+err.message, true);
   } finally {

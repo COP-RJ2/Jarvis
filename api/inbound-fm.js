@@ -19,6 +19,13 @@ const { fetchTabByGid } = require('./_google');
 const { toNum, hojeOperacionalIso, dataOperacionalDe } = require('./_period');
 const { socDaSessaoOuErro } = require('./_users');
 const { lerPorStationId } = require('./_pg_ontime');
+const { lerPorSoc } = require('./_pg');
+const { pool } = require('../db');
+
+// Categorias fixas do de-para de docas (pedido do Roberto em 2026-09-25): a
+// tabela `dock` do Postgres-ontime não tem campo confiável pra classificar
+// automaticamente, então vira cadastro manual, igual de_para_ruas/esteiras.
+const CATEGORIAS_DOCA = ['Interna', 'Externa', 'Inbound LH', 'Inbound FM', 'Outbound LH', 'Outbound SoC'];
 
 // "HH:MM" -> minutos (occupation_time_hh_mm da tabela `dock`, Postgres-ontime).
 function hhmmParaMin(v) {
@@ -51,7 +58,183 @@ function turnoDeHora(hora) {
   return 'T3';
 }
 
+// ── "Configurar Docas" (?docas=1) — mesmo padrão de handleEsteiras em
+// api/conveyor.js (que por sua vez segue handleRuas/handleRuasBatch/
+// validarLinhaRua em api/cluster.js), só que com 2 campos (dock_no/
+// categoria) em vez de 4. PK (soc, dock_no). `categoria` é lista fixa
+// (CATEGORIAS_DOCA), não texto livre — validada tanto no create/update
+// individual quanto no batch, mesmo espírito da validação de coluna
+// desconhecida que Ruas/Esteiras já fazem.
+function validarLinhaDoca(payload) {
+  const dock_no = String((payload || {}).dock_no || '').trim();
+  const categoria = String((payload || {}).categoria || '').trim();
+  const faltando = [];
+  if (!dock_no) faltando.push('Doca');
+  if (!categoria) faltando.push('Categoria');
+  else if (!CATEGORIAS_DOCA.includes(categoria)) {
+    return { ok: false, erro: `Categoria "${categoria}" inválida — use uma de: ${CATEGORIAS_DOCA.join(', ')}.` };
+  }
+  if (faltando.length) {
+    return { ok: false, erro: `Campo(s) obrigatório(s) inválido(s): ${faltando.join(', ')}.` };
+  }
+  return { ok: true, valores: { dock_no, categoria } };
+}
+
+const DOCAS_BATCH_MAX = 500; // sanity bound — teto genérico, número real de docas é bem menor
+
+async function handleDocasBatch(req, res, soc, listar) {
+  const linhas = (req.body || {}).docas;
+  if (!Array.isArray(linhas) || !linhas.length) {
+    res.status(400).json({ ok: false, erro: 'Nenhuma linha pra importar.' });
+    return;
+  }
+  if (linhas.length > DOCAS_BATCH_MAX) {
+    res.status(400).json({ ok: false, erro: `Máximo de ${DOCAS_BATCH_MAX} linhas por importação (mandou ${linhas.length}).` });
+    return;
+  }
+
+  const erros = [];
+  const vistos = new Map();
+  const validas = [];
+  linhas.forEach((linha, i) => {
+    const n = i + 1;
+    const v = validarLinhaDoca(linha);
+    if (!v.ok) { erros.push(`Linha ${n}: ${v.erro}`); return; }
+    const chave = v.valores.dock_no.toLowerCase();
+    if (vistos.has(chave)) { erros.push(`Linha ${n}: Doca "${v.valores.dock_no}" duplicada (já aparece na linha ${vistos.get(chave)}).`); return; }
+    vistos.set(chave, n);
+    validas.push(v.valores);
+  });
+  if (erros.length) {
+    res.status(400).json({ ok: false, erro: 'Arquivo fora do modelo esperado.', erros });
+    return;
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    for (const v of validas) {
+      await client.query(
+        `INSERT INTO de_para_docas (soc, dock_no, categoria, atualizado_em)
+         VALUES ($1,$2,$3, now())
+         ON CONFLICT (soc, dock_no) DO UPDATE
+           SET categoria = EXCLUDED.categoria, atualizado_em = now()`,
+        [soc, v.dock_no, v.categoria]
+      );
+    }
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(502).json({ ok: false, erro: err.message });
+    return;
+  } finally {
+    client.release();
+  }
+
+  res.status(200).json({ ok: true, importadas: validas.length, docas: await listar() });
+}
+
+async function handleDocas(req, res) {
+  const soc = socDaSessaoOuErro(req, res);
+  if (!soc) return;
+
+  const listar = async () => {
+    const linhas = await lerPorSoc('de_para_docas', soc);
+    linhas.sort((a, b) => a.dock_no.localeCompare(b.dock_no));
+    return linhas;
+  };
+
+  if (req.method === 'GET') {
+    try {
+      res.status(200).json({ ok: true, docas: await listar(), categorias: CATEGORIAS_DOCA });
+    } catch (err) {
+      res.status(502).json({ ok: false, erro: err.message });
+    }
+    return;
+  }
+
+  if (req.method !== 'POST') {
+    res.status(405).json({ ok: false, erro: 'Use GET ou POST' });
+    return;
+  }
+
+  const action = (req.body || {}).action;
+
+  if (action === 'batch') {
+    await handleDocasBatch(req, res, soc, listar);
+    return;
+  }
+
+  const payload = (req.body || {}).doca || {};
+  const dock_no = String(payload.dock_no || '').trim();
+
+  if (action === 'delete') {
+    if (!dock_no) {
+      res.status(400).json({ ok: false, erro: 'Doca obrigatória.' });
+      return;
+    }
+    try {
+      await pool.query('DELETE FROM de_para_docas WHERE soc = $1 AND dock_no = $2', [soc, dock_no]);
+      res.status(200).json({ ok: true, docas: await listar() });
+    } catch (err) {
+      res.status(502).json({ ok: false, erro: err.message });
+    }
+    return;
+  }
+
+  if (action !== 'create' && action !== 'update') {
+    res.status(400).json({ ok: false, erro: 'action inválida (use create, update, delete ou batch).' });
+    return;
+  }
+
+  const validacao = validarLinhaDoca(payload);
+  if (!validacao.ok) {
+    res.status(400).json({ ok: false, erro: validacao.erro });
+    return;
+  }
+  const { categoria } = validacao.valores;
+
+  try {
+    if (action === 'create') {
+      await pool.query(
+        `INSERT INTO de_para_docas (soc, dock_no, categoria, atualizado_em)
+         VALUES ($1, $2, $3, now())`,
+        [soc, dock_no, categoria]
+      );
+    } else {
+      const { rowCount } = await pool.query(
+        `UPDATE de_para_docas SET categoria = $3, atualizado_em = now()
+          WHERE soc = $1 AND dock_no = $2`,
+        [soc, dock_no, categoria]
+      );
+      if (!rowCount) {
+        res.status(404).json({ ok: false, erro: `Doca "${dock_no}" não encontrada pra esse SoC.` });
+        return;
+      }
+    }
+  } catch (err) {
+    // 23505 = unique_violation (soc, dock_no)
+    if (err.code === '23505') {
+      res.status(400).json({ ok: false, erro: `Já existe uma doca cadastrada com número "${dock_no}" pra esse SoC.` });
+      return;
+    }
+    res.status(502).json({ ok: false, erro: err.message });
+    return;
+  }
+
+  try {
+    res.status(200).json({ ok: true, docas: await listar() });
+  } catch (err) {
+    res.status(502).json({ ok: false, erro: err.message });
+  }
+}
+
 module.exports = async (req, res) => {
+  if (req.query.docas !== undefined) {
+    await handleDocas(req, res);
+    return;
+  }
+
   const soc = socDaSessaoOuErro(req, res);
   if (!soc) return;
 
@@ -73,11 +256,12 @@ module.exports = async (req, res) => {
     }
   }
 
-  let docaRowsPg, dockRows;
+  let docaRowsPg, dockRows, deParaDocas;
   try {
-    [docaRowsPg, dockRows] = await Promise.all([
+    [docaRowsPg, dockRows, deParaDocas] = await Promise.all([
       lerPorStationId('fmbeep', soc),
       lerPorStationId('dock', soc),
+      lerPorSoc('de_para_docas', soc),
     ]);
   } catch (err) {
     res.status(502).json({ ok: false, erro: err.message });
@@ -154,6 +338,11 @@ module.exports = async (req, res) => {
   // vivo da tabela `dock` — sempre "agora", não filtra por data escolhida
   // (é um indicador complementar ao histórico, não um substituto dele).
   // Funciona pra qualquer SoC que já tenha dado no Postgres-ontime.
+  // Categoria de cada doca (Interna/Externa/Inbound LH/Inbound FM/Outbound
+  // LH/Outbound SoC) vem do cadastro manual de_para_docas — a tabela `dock`
+  // do Postgres-ontime não tem campo confiável pra classificar isso sozinha
+  // (pedido do Roberto em 2026-09-25).
+  const mapaCategoriaPorDoca = new Map(deParaDocas.map(d => [d.dock_no, d.categoria]));
   const docasOcupadasAgora = dockRows
     .filter(r => r.occupied_driver)
     .map(r => ({
@@ -161,7 +350,19 @@ module.exports = async (req, res) => {
       docaNome: r.dock_name || '',
       motorista: r.occupied_driver || '',
       tempoOcupacaoMin: hhmmParaMin(r.occupation_time_hh_mm),
+      categoria: mapaCategoriaPorDoca.get(r.dock_no) || 'Não classificada',
     }));
+
+  // Resumo agrupado por categoria (o motivo de tudo isso existir, pedido do
+  // Roberto em 2026-09-25) — inclui "Não classificada" de propósito: é
+  // sinal de que falta cadastrar a doca em "Configurar Docas", não algo pra
+  // esconder.
+  const docasOcupadasPorCategoria = {};
+  CATEGORIAS_DOCA.forEach(cat => { docasOcupadasPorCategoria[cat] = 0; });
+  docasOcupadasPorCategoria['Não classificada'] = 0;
+  docasOcupadasAgora.forEach(d => {
+    docasOcupadasPorCategoria[d.categoria] = (docasOcupadasPorCategoria[d.categoria] || 0) + 1;
+  });
 
   res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=300');
   res.status(200).json({
@@ -170,6 +371,7 @@ module.exports = async (req, res) => {
     rows: linhas,
     docas,
     docasOcupadasAgora,
+    docasOcupadasPorCategoria,
     opcoes,
     cobertura: { inicio: dataMinima, fim: dataMaxima },
   });

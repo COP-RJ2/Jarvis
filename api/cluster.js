@@ -83,9 +83,13 @@ const { fetchTabByGid } = require('./_google');
 const { toNum, parseCSV } = require('./_period');
 const { enrich, toCarroRow } = require('./_outbound');
 const { lerPorSoc } = require('./_pg');
+const { lerPorStationId } = require('./_pg_ontime');
 const { socDaSessaoOuErro } = require('./_users');
 const { pool } = require('../db');
 
+// Não usado mais no handler principal desde a migração pro Postgres-ontime
+// (2026-09-25, ver lerPorStationId('to_outbound', soc) abaixo) — deixado
+// como referência do gid original, remoção fica pra uma limpeza posterior.
 const CLUSTER_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '646168208' };
 const CONFIG_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '1408724077' };
 // Próx. CPT / Timer CPT por rua (pedido do Roberto em 2026-09-16): mesma
@@ -655,13 +659,23 @@ module.exports = async (req, res) => {
   const soc = socDaSessaoOuErro(req, res);
   if (!soc) return;
 
-  // Dado de FATO da Clusterização (cluster_pulso/rawdata_out_pulso, os
-  // TOs/pacotes reais — diferente do de-para de ruas acima, que já é
-  // multi-SoC via Postgres) é implicitamente RJ2 (sem coluna de SoC) — pra
-  // qualquer outro SoC, nem busca (melhor nada do que misturar dado de RJ2
-  // — pedido do Roberto em 2026-09-24). Mesma forma da resposta de sucesso,
-  // só com os campos de dado vazios/zerados.
-  if (soc !== 'RJ2') {
+  // Dado de FATO da Clusterização (pedido do Roberto em 2026-09-25): migrado
+  // do Sheets (cluster_pulso, implicitamente RJ2) pro Postgres-ontime,
+  // tabela `to_outbound` (nome enganoso — colunas reais são to_pack/
+  // receiver/staging_area/create_time/complete_time, mesmo vocabulário do
+  // cluster_pulso de sempre, só com nome de coluna com underscore em vez
+  // de espaço). Já particionada por station_id -> soc (ver _pg_ontime.js),
+  // então TODOS os SoCs tentam ler daqui agora, não só RJ2 — sem fallback
+  // pra Sheets (esse é o pivô novo, não um fallback do Sheets).
+  let linhasOntime = [];
+  try {
+    linhasOntime = await lerPorStationId('to_outbound', soc);
+  } catch (err) {
+    res.status(502).json({ ok: false, erro: err.message });
+    return;
+  }
+
+  if (!linhasOntime.length) {
     const atualVazio = aggregate([]);
     atualVazio.posicoesOcupadas = 0;
     atualVazio.ocupacaoTotalPct = 0;
@@ -681,9 +695,23 @@ module.exports = async (req, res) => {
     return;
   }
 
-  let rows, outboundRawRows;
+  // Adapta as colunas do Postgres (underscore) pro mesmo vocabulário que o
+  // resto desta função já usa (espaço, herdado do cabeçalho do Sheets) —
+  // evita reescrever toda a transformação abaixo, só troca a origem.
+  const rows = linhasOntime.map(r => ({
+    ...r,
+    'to number': r.to_number,
+    'to pack': r.to_pack,
+    operator: r.operator,
+    receiver: r.receiver,
+    'staging area': r.staging_area,
+    quantity: r.quantity,
+    'create time': r.create_time,
+    'complete time': r.complete_time,
+  }));
+
+  let outboundRawRows;
   try {
-    ({ rows } = await fetchTabByGid(CLUSTER_SHEET.spreadsheetId, CLUSTER_SHEET.gid));
     ({ rows: outboundRawRows } = await fetchTabByGid(OUTBOUND_SHEET.spreadsheetId, OUTBOUND_SHEET.gid));
   } catch (err) {
     res.status(502).json({ ok: false, erro: err.message });

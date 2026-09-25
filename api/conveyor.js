@@ -40,6 +40,7 @@
 const { fetchTabByGid } = require('./_google');
 const { toNum, dataOperacionalDe, hojeOperacionalIso } = require('./_period');
 const { lerPorSoc } = require('./_pg');
+const { lerPorStationId } = require('./_pg_ontime');
 const { socDaSessaoOuErro } = require('./_users');
 const { pool } = require('../db');
 
@@ -286,23 +287,14 @@ module.exports = async (req, res) => {
   const soc = socDaSessaoOuErro(req, res);
   if (!soc) return;
 
-  // Dado de FATO do Conveyor (conveyor_pulso, a performance por hora real —
-  // diferente do de-para de esteiras acima, que já é multi-SoC via
-  // Postgres) é implicitamente RJ2 (sem coluna de SoC) — pra qualquer outro
-  // SoC, nem busca (melhor nada do que misturar dado de RJ2 — pedido do
-  // Roberto em 2026-09-24). Mesma forma "sem dado" já usada abaixo quando a
-  // aba vem vazia.
-  if (soc !== 'RJ2') {
-    res.status(200).json({
-      ok: true, data: null, rows: [], grupos: [], sppScuttle: null,
-      cobertura: { inicio: null, fim: null },
-    });
-    return;
-  }
-
+  // Dado de FATO do Conveyor: migrado do Sheets (conveyor_pulso, implicitamente
+  // RJ2) pro Postgres-ontime (tabela `conveyor`, particionada por station_id —
+  // pedido do Roberto em 2026-09-25). Todo SoC busca agora; SoC sem
+  // station_id mapeado ou sem linha ainda -> array vazio (lerPorStationId
+  // nunca lança nesse caso), mesma resposta "sem dado" de antes.
   let rows;
   try {
-    ({ rows } = await fetchTabByGid(SHEET.spreadsheetId, SHEET.gid));
+    rows = await lerPorStationId('conveyor', soc);
   } catch (err) {
     res.status(502).json({ ok: false, erro: err.message });
     return;
@@ -325,9 +317,9 @@ module.exports = async (req, res) => {
     : (soc === 'RJ2' ? CLASSIFICACAO_ESTEIRA_RJ2_FALLBACK : new Map());
 
   const conveyor = rows
-    .filter(r => r['data extração'] && r.hora !== '')
+    .filter(r => r.data_extracao && r.hora !== '')
     .map(r => {
-      const dataExtracao = String(r['data extração'] || '');
+      const dataExtracao = String(r.data_extracao || '');
       const dataExtracaoIso = dataExtracao.slice(0, 10);
       const hora = toNum(r.hora);
       const dataIso = dataOperacionalDe(`${dataExtracaoIso} ${String(hora).padStart(2, '0')}:00:00`);
@@ -359,7 +351,7 @@ module.exports = async (req, res) => {
     hora: r.hora,
     opsId: r.ops || '',
     estacao: r.workstation || '',
-    nomeEstacao: r['nome ws'] || '',
+    nomeEstacao: r.nome_ws || '',
     grupo: classificarEsteira(r.esteira, MAPA_ESTEIRAS),
     turno: r.turno || '',
     totalProcessamento: toNum(r.pacotes),

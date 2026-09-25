@@ -26,6 +26,7 @@ const { fetchTabByGid, readRange, writeRange, ensureSheetExists, resolveTitle } 
 const { parseCSV, hojeOperacionalIso, dataOperacionalDe, toNum } = require('./_period');
 const { enrich, aggregate, toCarroRow, tipoCarregamento } = require('./_outbound');
 const { socDaSessaoOuErro } = require('./_users');
+const { lerPorStationId } = require('./_pg_ontime');
 
 const OUTBOUND_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '0' };
 // Monitor - Live (subaba nova dentro de Outbound, pedido do Roberto em
@@ -359,10 +360,19 @@ async function syncMonitorSnapshots(viagens, packedPorDestino) {
 // Monitor - Live: só busca/computa quando pedido explicitamente (?monitor=1)
 // — a página normal de Outbound não usa esse bloco. Curto-circuita antes do
 // fetch de OUTBOUND_SHEET (planilha diferente, não precisa das duas).
+//
+// Dado de FATO migrado do Sheets (outbound_monitor_pulso) pro Postgres-ontime
+// (tabela `outbound_monitor`, particionada por station_id — pedido do
+// Roberto em 2026-09-25). Ficou fora da varredura multi-SoC de 2026-09-24
+// (só tinha socDaSessaoOuErro no handler principal do arquivo, não aqui) —
+// adicionado agora junto da migração.
 async function buildMonitor(req, res) {
+  const soc = socDaSessaoOuErro(req, res);
+  if (!soc) return;
+
   let monRows;
   try {
-    ({ rows: monRows } = await fetchTabByGid(MONITOR_SHEET.spreadsheetId, MONITOR_SHEET.gid));
+    monRows = await lerPorStationId('outbound_monitor', soc);
   } catch (err) {
     res.status(502).json({ ok: false, erro: err.message });
     return;

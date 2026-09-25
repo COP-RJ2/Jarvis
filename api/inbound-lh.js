@@ -28,6 +28,7 @@
 const { fetchTabByGid, readRange, writeRange, resolveTitle, ensureSheetExists } = require('./_google');
 const { toNum, hojeOperacionalIso, dataOperacionalDe } = require('./_period');
 const { socDaSessaoOuErro } = require('./_users');
+const { lerPorStationId } = require('./_pg_ontime');
 
 const SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '1485919739' };
 
@@ -62,20 +63,20 @@ const FILA_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC
 
 function filaRowFromMonitor(r) {
   return {
-    queueNumber: r['queue number'] || '',
+    queueNumber: r.queue_number || '',
     status: r.status || '',
     driver: r.driver || '',
     agency: r.agency || '',
-    veiculo: r['vehicle number'] || '',
-    arrivalType: r['arrival type'] || '',
-    addToQueueTime: r['add to queue time'] || '',
-    waitingTimeS: toNum(r['waiting time (s)']),
-    outOfThreshold: String(r['out of threshold'] || '').trim().toLowerCase() === 'sim',
-    assignedDock: r['assigned dock'] || '',
-    occupiedDock: r['occupied dock'] || '',
-    onHoldDock: r['on hold dock'] || '',
-    orderQuantity: toNum(r['order quantity']),
-    lhTripName: r['lh trip name'] || '',
+    veiculo: r.vehicle_number || '',
+    arrivalType: r.arrival_type || '',
+    addToQueueTime: r.add_to_queue_time || '',
+    waitingTimeS: toNum(r.waiting_time_s),
+    outOfThreshold: String(r.out_of_threshold || '').trim().toLowerCase() === 'sim',
+    assignedDock: r.assigned_dock || '',
+    occupiedDock: r.occupied_dock || '',
+    onHoldDock: r.on_hold_dock || '',
+    orderQuantity: toNum(r.order_quantity),
+    lhTripName: r.lh_trip_name || '',
   };
 }
 
@@ -127,11 +128,18 @@ function filaStatusEfetivo(row) {
   return 'EmFila';
 }
 
+// Fila (checkin físico na catraca): migrada do Sheets (fila_pulso) pro
+// Postgres-ontime (tabela `dock_queue`, particionada por station_id —
+// pedido do Roberto em 2026-09-25). lhRows (o PLANO, inbound_lh_pulso) fica
+// no Sheets — fora do escopo desta migração, só a fila física mudou de fonte.
 async function buildFila(req, res) {
+  const soc = socDaSessaoOuErro(req, res);
+  if (!soc) return;
+
   let filaRows, lhRows;
   try {
-    ([{ rows: filaRows }, { rows: lhRows }] = await Promise.all([
-      fetchTabByGid(FILA_SHEET.spreadsheetId, FILA_SHEET.gid),
+    ([filaRows, { rows: lhRows }] = await Promise.all([
+      lerPorStationId('dock_queue', soc),
       fetchTabByGid(SHEET.spreadsheetId, SHEET.gid),
     ]));
   } catch (err) {
@@ -148,7 +156,7 @@ async function buildFila(req, res) {
   // fila_pulso por LT — última linha da aba vence em caso de duplicidade
   // (mesma LT registrada mais de uma vez, ex. reprocesso da catraca).
   const filaPorLT = new Map();
-  filaRows.forEach(r => { const lt = r['lh trip number'] || ''; if (lt) filaPorLT.set(lt, r); });
+  filaRows.forEach(r => { const lt = r.lh_trip_number || ''; if (lt) filaPorLT.set(lt, r); });
 
   const usadas = new Set();
   const doPlano = planoDoDia.map(lh => {
@@ -182,11 +190,11 @@ async function buildFila(req, res) {
   // quem já FINALIZOU só entra se o dia bater, senão a tela acumularia
   // histórico morto.
   const orfas = filaRows
-    .filter(r => { const lt = r['lh trip number'] || ''; return !lt || !usadas.has(lt); })
-    .filter(r => r.status !== 'Ended' || dataOperacionalDe(r['add to queue time']) === dia)
+    .filter(r => { const lt = r.lh_trip_number || ''; return !lt || !usadas.has(lt); })
+    .filter(r => r.status !== 'Ended' || dataOperacionalDe(r.add_to_queue_time) === dia)
     .map(r => {
       const base = {
-        lhTripNumber: r['lh trip number'] || '',
+        lhTripNumber: r.lh_trip_number || '',
         emFila: true,
         ...filaRowFromMonitor(r),
         lh: null,

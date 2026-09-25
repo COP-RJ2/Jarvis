@@ -12,8 +12,15 @@ for pkg in ["requests"]:
 
 import requests
 
-API_BASE = os.environ["PG_API_URL"].rstrip("/")
-HEADERS  = {"Content-Type": "application/json", "Authorization": "Bearer " + os.environ["PG_API_KEY"]}
+# Data Studio faz SUBSTITUIÇÃO DE TEXTO (${VAR}) nas Shell Tasks, não
+# injeta variável de ambiente — por isso os.environ["PG_API_URL"] nunca
+# funcionava aqui (causa raiz identificada em 2026-09-25). ${PG_API_URL} e
+# ${PG_API_KEY} abaixo são texto literal: a plataforma troca pelo valor real
+# ANTES de rodar o script, então quando o Python executa já é uma string
+# normal (confirme que PG_API_URL/PG_API_KEY existem nos Parameters Setting
+# do Workflow, sem "NOME = " colado na frente do valor).
+API_BASE = "${PG_API_URL}".rstrip("/")
+HEADERS  = {"Content-Type": "application/json", "Authorization": "Bearer ${PG_API_KEY}"}
 
 DATASETS = [
     {
@@ -23,8 +30,10 @@ DATASETS = [
     },
 ]
 
-PRESTO_HOST = os.environ.get("PRESTO_HOST", "https://trino-gateway-useast.shopee.io")
-PRESTO_USER = os.environ.get("PRESTO_USER", "roberto.barboza")
+# Hardcoded direto (mesmo default que já era usado antes) — não depende de
+# substituição de texto, evita mais um ponto de falha por enquanto.
+PRESTO_HOST = "https://trino-gateway-useast.shopee.io"
+PRESTO_USER = "roberto.barboza"
 
 def presto_fetch(sql):
     hdrs = {
